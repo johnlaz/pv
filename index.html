@@ -1,530 +1,945 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendorVault Pro - Credential & Subscription Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Credentials & Documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.4.4/dexie.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: { 950:'#070a14', 900:'#0b0f1e', 850:'#0f1428', 800:'#131a2e', 700:'#1a2340', 600:'#232f52' },
+          gold: { 400:'#e2c375', 500:'#d4af37', 600:'#b8932c' },
+          teal: { 400:'#5eead4', 500:'#2dd4bf', 600:'#0f9d8f' }
+        },
+        fontFamily: {
+          serif: ['"Playfair Display"','serif'],
+          sans: ['"DM Sans"','sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body{ background:radial-gradient(circle at 20% 0%, #131a2e 0%, #0b0f1e 45%, #070a14 100%); }
+  .glass{ background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(12px); }
+  .glass-solid{ background:#0f1428; border:1px solid rgba(255,255,255,0.09); }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:rgba(212,175,55,0.3); border-radius:8px; }
+  .gold-grad{ background:linear-gradient(135deg,#e2c375,#b8932c); }
+  input, textarea, select { color-scheme: dark; }
+  .fade-in{ animation:fadeIn .18s ease-out; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+<body class="text-slate-200 font-sans antialiased min-h-screen flex flex-col">
 
-    <!-- Header -->
-    <header class="bg-indigo-700 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <span class="text-2xl font-bold tracking-tight">🔒 VendorVault Pro</span>
-                <span id="current-role-badge" class="bg-indigo-800 text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold"></span>
-            </div>
-            <div class="flex items-center space-x-2 flex-wrap justify-center">
-                <button onclick="openUserManagementModal()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Manage Users</button>
-                <button onclick="switchUserModal()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Switch User</button>
-                <button onclick="clearAllData()" class="bg-rose-600 hover:bg-rose-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Clear All Data</button>
-                <button onclick="exportData()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Export JSON</button>
-                <label class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium cursor-pointer transition">
-                    Import JSON
-                    <input type="file" id="import-file" accept=".json" onchange="importData(event)" class="hidden">
-                </label>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
-        
-        <!-- Navigation Tabs (Vendors vs Subscriptions) -->
-        <div class="flex border-b border-slate-200 mb-6">
-            <button onclick="switchTab('vendors')" id="tab-vendors" class="py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition">Vendors & Sites</button>
-            <button onclick="switchTab('subscriptions')" id="tab-subscriptions" class="py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">Subscriptions & Tools</button>
-        </div>
-
-        <!-- Controls Bar -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-            <div class="w-full md:w-1/3">
-                <input type="text" id="search-input" placeholder="Search name, category, username..." oninput="renderDashboard()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
-            </div>
-            <div id="admin-actions" class="flex space-x-3 hidden">
-                <button onclick="openCredentialModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition shadow-sm">+ Add Item</button>
-            </div>
-        </div>
-
-        <!-- Credentials/Subscriptions Table -->
-        <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-semibold border-b border-slate-200">
-                            <th class="px-6 py-3">Name / Service</th>
-                            <th class="px-6 py-3">Category</th>
-                            <th class="px-6 py-3">Username / ID</th>
-                            <th class="px-6 py-3">Password / Key</th>
-                            <th class="px-6 py-3" id="dynamic-extra-col">URL / Billing Cycle</th>
-                            <th class="px-6 py-3">Allowed Roles</th>
-                            <th class="px-6 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="credentials-table-body" class="divide-y divide-slate-200 text-sm">
-                        <!-- Populated dynamically -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- Add/Edit Item Modal -->
-    <div id="credential-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-4">Add Item</h3>
-            <form id="credential-form" onsubmit="saveCredential(event)" class="space-y-4">
-                <input type="hidden" id="cred-id">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Type</label>
-                    <select id="cred-type" onchange="toggleModalFields()" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                        <option value="vendor">Vendor / Site</option>
-                        <option value="subscription">Subscription / Service</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Name</label>
-                    <input type="text" id="cred-name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="e.g. AWS or GitHub">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Category</label>
-                    <input type="text" id="cred-category" placeholder="e.g. Hosting, Marketing, DevTools" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Username / Email</label>
-                    <input type="text" id="cred-username" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Password</label>
-                    <input type="text" id="cred-password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                
-                <!-- Conditional Fields -->
-                <div id="field-url-container">
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Login URL</label>
-                    <input type="url" id="cred-url" placeholder="https://example.com/login" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div id="field-billing-container" class="hidden">
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Billing Cycle & Cost</label>
-                    <input type="text" id="cred-billing" placeholder="e.g. Monthly - $49/mo" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Allowed Roles (Hold Ctrl/Cmd for multiple)</label>
-                    <select id="cred-roles" multiple required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 h-24">
-                        <!-- Populated dynamically based on registered roles -->
-                    </select>
-                </div>
-                <div class="flex justify-end space-x-3 pt-2">
-                    <button type="button" onclick="closeCredentialModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Save</button>
-                </div>
-            </form>
-        </div>
+<!-- Header -->
+<header class="glass-solid sticky top-0 z-40 shadow-lg shadow-black/30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🗝️</span>
+      <div>
+        <h1 class="font-serif font-bold text-xl text-gold-400 tracking-tight leading-none">Vault</h1>
+        <p class="text-[11px] text-slate-400 tracking-wide">Credentials &amp; Documents</p>
+      </div>
     </div>
-
-    <!-- Manage Users Modal -->
-    <div id="user-management-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 class="text-lg font-bold text-slate-900 mb-4">User & Role Directory</h3>
-            
-            <form onsubmit="addUser(event)" class="space-y-3 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-600 uppercase">Add New User</h4>
-                <div>
-                    <input type="text" id="new-user-name" placeholder="Full Name" required class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-                </div>
-                <div>
-                    <input type="text" id="new-user-role" placeholder="Role Tag (e.g. Admin, Finance, Engineering)" required class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2 rounded-lg transition">Add User Profile</button>
-            </form>
-
-            <h4 class="text-xs font-bold text-slate-600 uppercase mb-2">Existing Users</h4>
-            <div id="user-directory-list" class="space-y-2 max-h-40 overflow-y-auto mb-4 border border-slate-200 rounded-lg p-2 bg-white">
-                <!-- Dynamic list -->
-            </div>
-
-            <div class="flex justify-end">
-                <button onclick="closeUserManagementModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300">Close</button>
-            </div>
-        </div>
+    <div class="flex items-center gap-2 flex-wrap justify-center">
+      <button onclick="openShareModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-teal-600/20 text-teal-300 border border-teal-500/30 hover:bg-teal-600/30 transition">Share Selected</button>
+      <button onclick="openImportModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Import</button>
+      <button onclick="exportBackup()" class="relative text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">
+        Backup
+        <span id="backup-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gold-500 animate-pulse"></span>
+      </button>
+      <button onclick="openClearDataModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-rose-900/40 text-rose-300 border border-rose-700/40 hover:bg-rose-900/60 transition">Clear All</button>
     </div>
+  </div>
+</header>
 
-    <!-- Switch User Simulation Modal -->
-    <div id="user-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
-            <h3 class="text-lg font-bold text-slate-900 mb-2">Simulate Active User</h3>
-            <p class="text-sm text-slate-500 mb-4">Select a user profile to check access permissions.</p>
-            <div id="user-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto">
-                <!-- Dynamic user buttons -->
-            </div>
-            <button onclick="switchUserModal()" class="w-full px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Close</button>
-        </div>
+<!-- Domain switcher -->
+<div class="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
+  <div class="flex items-center justify-center gap-2 mb-6">
+    <div class="glass p-1 rounded-xl inline-flex">
+      <button id="domain-personal" onclick="setDomain('personal')" class="px-5 py-2 rounded-lg text-sm font-semibold transition">Personal</button>
+      <button id="domain-business" onclick="setDomain('business')" class="px-5 py-2 rounded-lg text-sm font-semibold transition">Business</button>
     </div>
+  </div>
+</div>
 
-    <script>
-        // Clean initial state with a single default Admin user and empty records
-        let db = {
-            users: [
-                { name: "Owner / Admin", role: "Admin" }
-            ],
-            credentials: []
-        };
+<!-- Backup reminder banner -->
+<div id="backup-banner" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 -mt-2 mb-4">
+  <div class="glass border border-gold-500/30 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+    <p id="backup-banner-text" class="text-xs text-slate-300">Changes since your last backup.</p>
+    <div class="flex items-center gap-2">
+      <button onclick="exportBackup()" class="text-xs px-3 py-1.5 rounded-lg font-semibold gold-grad text-navy-950">Backup Now</button>
+      <button onclick="dismissBackupBanner()" class="text-xs px-2 py-1.5 rounded-lg text-slate-400 hover:text-slate-200">Dismiss</button>
+    </div>
+  </div>
+</div>
 
-        let currentUser = db.users[0]; 
-        let activeTab = 'vendors'; 
+<!-- Main -->
+<main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 pb-16">
 
-        function initApp() {
-            // Try loading from localStorage if previously saved
-            const saved = localStorage.getItem('vendorVault_db');
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (parsed.users && parsed.credentials) {
-                        db = parsed;
-                        currentUser = db.users[0];
-                    }
-                } catch (e) {
-                    console.error("Could not load local storage data");
-                }
-            }
-            renderDashboard();
-        }
+  <!-- Tabs -->
+  <div class="flex border-b border-white/10 mb-5 gap-1">
+    <button onclick="setTab('credentials')" id="tab-credentials" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Credentials</button>
+    <button onclick="setTab('documents')" id="tab-documents" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Documents</button>
+  </div>
 
-        function saveToLocalStorage() {
-            localStorage.setItem('vendorVault_db', JSON.stringify(db));
-        }
+  <!-- Controls -->
+  <div class="flex flex-col md:flex-row justify-between items-center mb-5 gap-3">
+    <div class="w-full md:w-1/3 relative">
+      <input type="text" id="search-input" placeholder="Search name, category, username..." oninput="render()" class="w-full pl-4 pr-4 py-2.5 rounded-lg glass focus:outline-none focus:ring-2 focus:ring-gold-500/50 text-sm placeholder:text-slate-500">
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="toggleSelectMode()" id="select-mode-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Select</button>
+      <button onclick="openCredentialModal()" id="add-credential-btn" class="text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Credential</button>
+      <button onclick="openDocumentModal()" id="add-document-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Document</button>
+    </div>
+  </div>
 
-        function clearAllData() {
-            if (confirm("Are you sure you want to delete all entries and user profiles? This will reset the app to a blank slate.")) {
-                db = {
-                    users: [{ name: "Owner / Admin", role: "Admin" }],
-                    credentials: []
-                };
-                currentUser = db.users[0];
-                localStorage.removeItem('vendorVault_db');
-                renderDashboard();
-                alert("App has been reset to a clean state.");
-            }
-        }
+  <!-- Credentials list -->
+  <div id="credentials-view" class="space-y-3"></div>
 
-        function switchTab(tab) {
-            activeTab = tab;
-            const btnVendors = document.getElementById('tab-vendors');
-            const btnSubs = document.getElementById('tab-subscriptions');
+  <!-- Documents grid -->
+  <div id="documents-view" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-            if (tab === 'vendors') {
-                btnVendors.className = "py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition";
-                btnSubs.className = "py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
-            } else {
-                btnSubs.className = "py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition";
-                btnVendors.className = "py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
-            }
-            renderDashboard();
-        }
+  <p class="text-center text-[11px] text-slate-500 mt-10 max-w-md mx-auto leading-relaxed">
+    Data is stored only on this device (unencrypted, in your browser's local database). Anyone with access to this browser profile can read it — protect this device the way you'd protect a physical vault. Backup and Share files can be encrypted with a passphrase at export time, so a file leaving this device doesn't have to leave in plain text.
+  </p>
+</main>
 
-        function renderDashboard() {
-            // Ensure current user still exists
-            if (!db.users.some(u => u.name === currentUser.name)) {
-                currentUser = db.users[0];
-            }
+<!-- Credential Modal -->
+<div id="credential-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 id="cred-modal-title" class="font-serif font-bold text-lg text-gold-400 mb-4">Add Credential</h3>
+    <form id="credential-form" onsubmit="saveCredential(event)" class="space-y-4">
+      <input type="hidden" id="cred-id">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Domain</label>
+          <select id="cred-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+            <option value="personal">Personal</option>
+            <option value="business">Business</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Type</label>
+          <select id="cred-type" onchange="toggleCredFields()" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+            <option value="vendor">Login / Site</option>
+            <option value="subscription">Subscription</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Name</label>
+        <input type="text" id="cred-name" required placeholder="e.g. AWS, GitHub, Chase Business" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Category</label>
+        <input type="text" id="cred-category" placeholder="e.g. Hosting, Banking, Insurance" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Username / Email</label>
+          <input type="text" id="cred-username" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Password</label>
+          <input type="text" id="cred-password" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm font-mono">
+        </div>
+      </div>
+      <div id="field-url-container">
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Login URL</label>
+        <input type="url" id="cred-url" placeholder="https://example.com/login" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div id="field-billing-container" class="hidden">
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Billing Cycle & Cost</label>
+        <input type="text" id="cred-billing" placeholder="e.g. Monthly - $49/mo" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Notes (2FA backup, security Qs, etc.)</label>
+        <textarea id="cred-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeModal('credential-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-            document.getElementById('current-role-badge').innerText = `${currentUser.name} (${currentUser.role})`;
-            const adminActions = document.getElementById('admin-actions');
-            if (currentUser.role === 'Admin') {
-                adminActions.classList.remove('hidden');
-            } else {
-                adminActions.classList.add('hidden');
-            }
+<!-- Document Modal -->
+<div id="document-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-4">Add Document</h3>
+    <form id="document-form" onsubmit="saveDocument(event)" class="space-y-4">
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Domain</label>
+        <select id="doc-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+          <option value="personal">Personal</option>
+          <option value="business">Business</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Name</label>
+        <input type="text" id="doc-name" required placeholder="e.g. Business License, Passport" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Category</label>
+        <input type="text" id="doc-category" placeholder="e.g. Legal, Insurance, ID" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">File (PDF or image)</label>
+        <input type="file" id="doc-file" accept=".pdf,image/*" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
+        <p id="doc-file-hint" class="text-[11px] text-slate-500 mt-1"></p>
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Notes</label>
+        <textarea id="doc-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeModal('document-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-            document.getElementById('dynamic-extra-col').innerText = activeTab === 'vendors' ? 'Login URL' : 'Billing & Cost';
+<!-- Share Modal -->
+<div id="share-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-md w-full p-6 fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Share Selected</h3>
+    <p id="share-count-text" class="text-sm text-slate-400 mb-4">No items selected.</p>
+    <div class="flex flex-col gap-2">
+      <button onclick="downloadSharePackage()" class="px-4 py-2.5 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Download Share File (.json)</button>
+      <button onclick="copySharePackage()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Copy to Clipboard</button>
+    </div>
+    <p class="text-[11px] text-slate-500 mt-4">The share file contains plain-text credentials — send it only through a channel you trust (not email/SMS if you can help it), and delete it after the recipient imports it.</p>
+    <div class="flex justify-end mt-4">
+      <button onclick="closeModal('share-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>
+    </div>
+  </div>
+</div>
 
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
-            const tbody = document.getElementById('credentials-table-body');
-            tbody.innerHTML = '';
+<!-- Import Modal -->
+<div id="import-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-4">Import</h3>
+    <div class="space-y-3 mb-4">
+      <label class="block text-[11px] font-semibold text-slate-400 uppercase">Upload a share or backup file</label>
+      <input type="file" id="import-file-input" accept=".json" onchange="handleImportFile(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
+      <label class="block text-[11px] font-semibold text-slate-400 uppercase pt-2">...or paste JSON</label>
+      <textarea id="import-paste" rows="4" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-xs font-mono resize-none" placeholder="Paste share package JSON here"></textarea>
+      <button onclick="parseImportPaste()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Parse Pasted JSON</button>
+    </div>
+    <div id="import-preview"></div>
+  </div>
+</div>
 
-            const filtered = db.credentials.filter(cred => {
-                const matchesTab = (activeTab === 'vendors' && cred.type === 'vendor') || (activeTab === 'subscriptions' && cred.type === 'subscription');
-                const hasAccess = currentUser.role === 'Admin' || cred.roles.includes(currentUser.role);
-                const matchesSearch = cred.name.toLowerCase().includes(searchTerm) || cred.category.toLowerCase().includes(searchTerm) || cred.username.toLowerCase().includes(searchTerm);
-                return matchesTab && hasAccess && matchesSearch;
-            });
+<!-- Clear Data Modal -->
+<div id="clear-data-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+    <h3 class="font-serif font-bold text-lg text-rose-400 mb-2">Clear All Data</h3>
+    <p class="text-sm text-slate-400 mb-4">This permanently deletes every credential and document on this device. This cannot be undone. Type <span class="font-mono text-rose-300">DELETE</span> to confirm.</p>
+    <input type="text" id="clear-confirm-input" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4" placeholder="DELETE">
+    <div class="flex justify-end gap-3">
+      <button onclick="closeModal('clear-data-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="confirmClearAllData()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Delete Everything</button>
+    </div>
+  </div>
+</div>
 
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">No records found. Click "+ Add Item" above to get started.</td></tr>`;
-                return;
-            }
+<!-- Generic Confirm Modal -->
+<div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+    <h3 id="confirm-modal-title" class="font-serif font-bold text-lg text-gold-400 mb-2">Confirm</h3>
+    <p id="confirm-modal-message" class="text-sm text-slate-400 mb-5"></p>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeModal('confirm-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button id="confirm-modal-action" onclick="runConfirm()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Confirm</button>
+    </div>
+  </div>
+</div>
 
-            filtered.forEach(cred => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition";
-                
-                let extraColContent = '';
-                if (cred.type === 'vendor') {
-                    extraColContent = cred.url ? `<a href="${escapeAttr(cred.url)}" target="_blank" class="text-indigo-600 hover:underline text-xs truncate block max-w-xs">🔗 ${escapeHtml(cred.url)}</a>` : '<span class="text-slate-400 text-xs">No URL</span>';
-                } else {
-                    extraColContent = `<span class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(cred.billing || 'N/A')}</span>`;
-                }
+<!-- Export Passphrase Modal -->
+<div id="export-passphrase-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Protect This Export</h3>
+    <p class="text-sm text-slate-400 mb-4">Set a passphrase to encrypt this file. Without it, anyone who opens the file sees only scrambled data — nothing readable unless it's decrypted back into the app. There's no recovery if you forget it, so keep it somewhere separate from the file itself.</p>
+    <input type="password" id="export-passphrase-input" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4">
+    <div class="flex flex-col gap-2">
+      <button onclick="confirmExportEncrypted()" class="px-4 py-2.5 rounded-lg text-sm font-semibold gold-grad text-navy-950">Encrypt &amp; Export</button>
+      <button onclick="confirmExportPlain()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Export Without Encryption</button>
+      <button onclick="closeModal('export-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+    </div>
+  </div>
+</div>
 
-                tr.innerHTML = `
-                    <td class="px-6 py-4 font-semibold text-slate-900">${escapeHtml(cred.name)}</td>
-                    <td class="px-6 py-4"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-xs font-medium">${escapeHtml(cred.category)}</span></td>
-                    <td class="px-6 py-4 font-mono text-xs text-slate-600">${escapeHtml(cred.username)}</td>
-                    <td class="px-6 py-4 font-mono text-xs">
-                        <span id="pass-${cred.id}" class="select-none text-slate-400">••••••••••••</span>
-                        <button onclick="togglePassword('${cred.id}', '${escapeAttr(cred.password)}')"" class="ml-2 text-indigo-600 hover:underline text-xs font-medium">Reveal</button>
-                    </td>
-                    <td class="px-6 py-4">${extraColContent}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex flex-wrap gap-1">
-                            ${cred.roles.map(r => `<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-semibold">${r}</span>`).join('')}
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-right space-x-2">
-                        ${currentUser.role === 'Admin' ? `
-                            <button onclick="editCredential('${cred.id}')" class="text-indigo-600 hover:text-indigo-900 text-xs font-medium">Edit</button>
-                            <button onclick="deleteCredential('${cred.id}')" class="text-rose-600 hover:text-rose-900 text-xs font-medium">Delete</button>
-                        ` : '<span class="text-slate-400 text-xs">View Only</span>'}
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+<!-- Import Passphrase Modal -->
+<div id="import-passphrase-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Encrypted File</h3>
+    <p class="text-sm text-slate-400 mb-4">This file is encrypted. Enter the passphrase it was exported with.</p>
+    <input type="password" id="import-decrypt-passphrase" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4">
+    <div class="flex justify-end gap-3">
+      <button onclick="closeModal('import-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="decryptPendingImport()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950">Decrypt</button>
+    </div>
+  </div>
+</div>
 
-        function togglePassword(id, rawPassword) {
-            const span = document.getElementById(`pass-${id}`);
-            if (span.classList.contains('select-none')) {
-                span.innerText = rawPassword;
-                span.classList.remove('select-none', 'text-slate-400');
-                span.classList.add('text-slate-900');
-            } else {
-                span.innerText = '••••••••••••';
-                span.classList.add('select-none', 'text-slate-400');
-                span.classList.remove('text-slate-900');
-            }
-        }
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 glass-solid px-4 py-2.5 rounded-lg text-sm shadow-xl hidden z-50"></div>
 
-        function populateRoleSelects(selectedRoles = []) {
-            const uniqueRoles = Array.from(new Set(['Admin', ...db.users.map(u => u.role)]));
-            const select = document.getElementById('cred-roles');
-            select.innerHTML = '';
-            uniqueRoles.forEach(role => {
-                const opt = document.createElement('option');
-                opt.value = role;
-                opt.innerText = role;
-                if (selectedRoles.includes(role)) opt.selected = true;
-                select.appendChild(opt);
-            });
-        }
+<script>
+/* ---------- DB ---------- */
+const db = new Dexie('LazVaultDB');
+db.version(1).stores({
+  credentials: 'id, domain, type, name, category',
+  documents: 'id, domain, name, category'
+});
 
-        function openCredentialModal(cred = null) {
-            const modal = document.getElementById('credential-modal');
-            const title = document.getElementById('modal-title');
-            document.getElementById('credential-form').reset();
-            
-            if (cred) {
-                title.innerText = "Edit Record";
-                document.getElementById('cred-id').value = cred.id;
-                document.getElementById('cred-type').value = cred.type;
-                document.getElementById('cred-name').value = cred.name;
-                document.getElementById('cred-category').value = cred.category;
-                document.getElementById('cred-username').value = cred.username;
-                document.getElementById('cred-password').value = cred.password;
-                document.getElementById('cred-url').value = cred.url || '';
-                document.getElementById('cred-billing').value = cred.billing || '';
-                populateRoleSelects(cred.roles);
-            } else {
-                title.innerText = "Add Record";
-                document.getElementById('cred-id').value = '';
-                document.getElementById('cred-type').value = activeTab === 'vendors' ? 'vendor' : 'subscription';
-                populateRoleSelects(['Admin']);
-            }
-            toggleModalFields();
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
+/* ---------- State ---------- */
+let activeDomain = 'personal';
+let activeTab = 'credentials';
+let selectMode = false;
+let selectedIds = new Set(); // format: "credential:<id>" / "document:<id>"
+let credentialsCache = new Map(); // id -> credential record, so secrets never travel through HTML attributes
+let pendingChanges = parseInt(localStorage.getItem('vault_pendingChanges') || '0', 10) || 0;
 
-        function toggleModalFields() {
-            const type = document.getElementById('cred-type').value;
-            const urlContainer = document.getElementById('field-url-container');
-            const billingContainer = document.getElementById('field-billing-container');
+/* ---------- Utils ---------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function escapeHtml(str){ return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+function formatBytes(bytes){ if(!bytes) return '0 B'; const u=['B','KB','MB','GB']; let i=0; while(bytes>=1024 && i<u.length-1){bytes/=1024;i++;} return bytes.toFixed(1)+' '+u[i]; }
+function showToast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.classList.remove('hidden'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.add('hidden'),2200); }
+function closeModal(id){ const m=document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+function openModal(id){ const m=document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+function blobToBase64(blob){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(blob); }); }
+function base64ToBlob(dataUrl){ const [meta, data] = dataUrl.split(','); const mimeMatch = meta.match(/:(.*?);/); const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'; const bin = atob(data); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return new Blob([arr], {type: mime}); }
+function downloadJSON(obj, filename){ const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
+async function copyText(text){ try{ await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); }catch(e){ showToast('Could not copy — try downloading instead'); } }
 
-            if (type === 'vendor') {
-                urlContainer.classList.remove('hidden');
-                billingContainer.classList.add('hidden');
-            } else {
-                urlContainer.classList.add('hidden');
-                billingContainer.classList.remove('hidden');
-            }
-        }
+/* ---------- Change tracking / backup reminder ---------- */
+function markChanged(){
+  pendingChanges++;
+  localStorage.setItem('vault_pendingChanges', String(pendingChanges));
+  updateBackupIndicators();
+}
+function clearChangeCounter(){
+  pendingChanges = 0;
+  localStorage.setItem('vault_pendingChanges', '0');
+  updateBackupIndicators();
+}
+function updateBackupIndicators(){
+  const badge = document.getElementById('backup-badge');
+  const banner = document.getElementById('backup-banner');
+  const text = document.getElementById('backup-banner-text');
+  if(pendingChanges > 0){
+    badge.classList.remove('hidden');
+    banner.classList.remove('hidden');
+    text.innerText = pendingChanges === 1 ? '1 change since your last backup.' : `${pendingChanges} changes since your last backup.`;
+  } else {
+    badge.classList.add('hidden');
+    banner.classList.add('hidden');
+  }
+}
+function dismissBackupBanner(){ document.getElementById('backup-banner').classList.add('hidden'); }
 
-        function closeCredentialModal() {
-            document.getElementById('credential-modal').classList.add('hidden');
-            document.getElementById('credential-modal').classList.remove('flex');
-        }
+/* ---------- Generic themed confirm modal ---------- */
+let confirmCallback = null;
+function showConfirm(title, message, actionLabel, danger, cb){
+  document.getElementById('confirm-modal-title').innerText = title;
+  document.getElementById('confirm-modal-message').innerText = message;
+  const btn = document.getElementById('confirm-modal-action');
+  btn.innerText = actionLabel;
+  btn.className = danger
+    ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white'
+    : 'px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950';
+  confirmCallback = cb;
+  openModal('confirm-modal');
+}
+function runConfirm(){
+  const cb = confirmCallback;
+  closeModal('confirm-modal');
+  confirmCallback = null;
+  if(cb) cb();
+}
 
-        function saveCredential(e) {
-            e.preventDefault();
-            const id = document.getElementById('cred-id').value;
-            const type = document.getElementById('cred-type').value;
-            const name = document.getElementById('cred-name').value;
-            const category = document.getElementById('cred-category').value;
-            const username = document.getElementById('cred-username').value;
-            const password = document.getElementById('cred-password').value;
-            const url = document.getElementById('cred-url').value;
-            const billing = document.getElementById('cred-billing').value;
-            const roles = Array.from(document.getElementById('cred-roles').selectedOptions).map(opt => opt.value);
+/* ---------- Crypto — used only for encrypting exported files, not the live vault ---------- */
+function uint8ToBase64(bytes){
+  let binary = '';
+  const chunk = 0x8000;
+  for(let i=0; i<bytes.length; i+=chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk)); }
+  return btoa(binary);
+}
+function base64ToUint8(b64){
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+async function deriveKey(passphrase, saltBytes, iterations){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(passphrase), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256' },
+    keyMaterial,
+    { name:'AES-GCM', length:256 },
+    false,
+    ['encrypt','decrypt']
+  );
+}
+async function encryptPackage(obj, passphrase){
+  const iterations = 250000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(passphrase, salt, iterations);
+  const data = new TextEncoder().encode(JSON.stringify(obj));
+  const cipherBuf = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, data);
+  return {
+    vaultEncrypted: true,
+    packageType: obj.packageType,
+    createdAt: obj.createdAt,
+    salt: uint8ToBase64(salt),
+    iv: uint8ToBase64(iv),
+    iterations,
+    ciphertext: uint8ToBase64(new Uint8Array(cipherBuf))
+  };
+}
+async function decryptPackage(payload, passphrase){
+  const salt = base64ToUint8(payload.salt);
+  const iv = base64ToUint8(payload.iv);
+  const key = await deriveKey(passphrase, salt, payload.iterations || 250000);
+  const cipherBytes = base64ToUint8(payload.ciphertext);
+  const plainBuf = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, cipherBytes);
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
 
-            if (id) {
-                const target = db.credentials.find(c => c.id === id);
-                if (target) {
-                    target.type = type;
-                    target.name = name;
-                    target.category = category;
-                    target.username = username;
-                    target.password = password;
-                    target.url = url;
-                    target.billing = billing;
-                    target.roles = roles;
-                }
-            } else {
-                const newCred = {
-                    id: Date.now().toString(),
-                    type, name, category, username, password, url, billing, roles
-                };
-                db.credentials.push(newCred);
-            }
+/* ---------- Init ---------- */
+async function initApp(){
+  updateBackupIndicators();
+  setDomain('personal');
+  setTab('credentials');
+}
 
-            saveToLocalStorage();
-            closeCredentialModal();
-            renderDashboard();
-        }
+/* ---------- Domain / Tab ---------- */
+function setDomain(domain){
+  activeDomain = domain;
+  document.getElementById('domain-personal').className = domain==='personal'
+    ? 'px-5 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 transition'
+    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition';
+  document.getElementById('domain-business').className = domain==='business'
+    ? 'px-5 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 transition'
+    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition';
+  render();
+}
 
-        function editCredential(id) {
-            const cred = db.credentials.find(c => c.id === id);
-            if (cred) openCredentialModal(cred);
-        }
+function setTab(tab){
+  activeTab = tab;
+  const cred = document.getElementById('tab-credentials');
+  const doc = document.getElementById('tab-documents');
+  cred.className = tab==='credentials' ? 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition' : 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
+  doc.className = tab==='documents' ? 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition' : 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
+  document.getElementById('credentials-view').classList.toggle('hidden', tab!=='credentials');
+  document.getElementById('documents-view').classList.toggle('hidden', tab!=='documents');
+  document.getElementById('add-credential-btn').classList.toggle('hidden', tab!=='credentials');
+  document.getElementById('add-document-btn').classList.toggle('hidden', tab!=='documents');
+  render();
+}
 
-        function deleteCredential(id) {
-            if (confirm("Are you sure you want to delete this item?")) {
-                db.credentials = db.credentials.filter(c => c.id !== id);
-                saveToLocalStorage();
-                renderDashboard();
-            }
-        }
+function toggleSelectMode(){
+  selectMode = !selectMode;
+  selectedIds.clear();
+  const btn = document.getElementById('select-mode-btn');
+  btn.innerText = selectMode ? 'Cancel Select' : 'Select';
+  btn.className = selectMode
+    ? 'text-sm px-3 py-2 rounded-lg font-medium bg-teal-600/30 text-teal-300 border border-teal-500/40 transition'
+    : 'text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition';
+  render();
+}
 
-        function openUserManagementModal() {
-            renderUserDirectory();
-            const modal = document.getElementById('user-management-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
+function toggleSelected(key){
+  if(selectedIds.has(key)) selectedIds.delete(key); else selectedIds.add(key);
+  render();
+}
 
-        function closeUserManagementModal() {
-            document.getElementById('user-management-modal').classList.add('hidden');
-            document.getElementById('user-management-modal').classList.remove('flex');
-        }
+/* ---------- Render ---------- */
+async function render(){
+  const search = document.getElementById('search-input').value.toLowerCase();
+  if(activeTab === 'credentials'){
+    const all = await db.credentials.where('domain').equals(activeDomain).toArray();
+    const filtered = all.filter(c =>
+      c.name.toLowerCase().includes(search) ||
+      c.category.toLowerCase().includes(search) ||
+      c.username.toLowerCase().includes(search)
+    ).sort((a,b)=>a.name.localeCompare(b.name));
+    renderCredentials(filtered);
+  } else {
+    const all = await db.documents.where('domain').equals(activeDomain).toArray();
+    const filtered = all.filter(d =>
+      d.name.toLowerCase().includes(search) ||
+      d.category.toLowerCase().includes(search)
+    ).sort((a,b)=>a.name.localeCompare(b.name));
+    renderDocuments(filtered);
+  }
+}
 
-        function renderUserDirectory() {
-            const list = document.getElementById('user-directory-list');
-            list.innerHTML = '';
-            db.users.forEach((u, index) => {
-                const div = document.createElement('div');
-                div.className = "flex justify-between items-center text-sm py-1 border-b border-slate-100 last:border-none";
-                div.innerHTML = `
-                    <span><strong>${escapeHtml(u.name)}</strong> <span class="text-xs text-slate-500 uppercase">(${escapeHtml(u.role)})</span></span>
-                    ${db.users.length > 1 ? `<button onclick="deleteUser(${index})" class="text-rose-600 hover:underline text-xs">Remove</button>` : '<span class="text-xs text-slate-400">Primary</span>'}
-                `;
-                list.appendChild(div);
-            });
-        }
+function renderCredentials(items){
+  const view = document.getElementById('credentials-view');
+  if(items.length === 0){
+    view.innerHTML = `<div class="glass rounded-xl p-10 text-center text-slate-500 text-sm">No credentials yet in ${activeDomain}. Click "+ Add Credential" to get started.</div>`;
+    return;
+  }
+  credentialsCache.clear();
+  view.innerHTML = items.map(c => {
+    credentialsCache.set(c.id, c);
+    const key = `credential:${c.id}`;
+    const checked = selectedIds.has(key);
+    const extra = c.type === 'vendor'
+      ? (c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" rel="noopener" class="text-teal-400 hover:underline text-xs truncate block max-w-[220px]">🔗 ${escapeHtml(c.url)}</a>` : '<span class="text-slate-500 text-xs">No URL</span>')
+      : `<span class="bg-teal-900/40 text-teal-300 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(c.billing || 'N/A')}</span>`;
+    return `
+    <div class="glass rounded-xl p-4 flex items-start gap-3">
+      ${selectMode ? `<input type="checkbox" onchange="toggleSelected('${key}')" ${checked?'checked':''} class="mt-1.5 w-4 h-4 accent-gold-500">` : ''}
+      <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+        <div class="sm:col-span-3">
+          <p class="font-semibold text-slate-100 truncate">${escapeHtml(c.name)}</p>
+          <span class="bg-navy-700 text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium">${escapeHtml(c.category)}</span>
+        </div>
+        <div class="sm:col-span-3">
+          <p class="text-[11px] text-slate-500 uppercase mb-0.5">Username</p>
+          <div class="flex items-center gap-1.5">
+            <span class="font-mono text-xs text-slate-300 truncate">${escapeHtml(c.username)}</span>
+            <button onclick="copyCredentialField('${c.id}','username')" class="text-slate-500 hover:text-gold-400 text-xs" title="Copy">⧉</button>
+          </div>
+        </div>
+        <div class="sm:col-span-3">
+          <p class="text-[11px] text-slate-500 uppercase mb-0.5">Password</p>
+          <div class="flex items-center gap-1.5">
+            <span id="pass-${c.id}" class="select-none font-mono text-xs text-slate-500">••••••••••</span>
+            <button onclick="togglePassword('${c.id}')" class="text-teal-400 hover:underline text-[11px]">Reveal</button>
+            <button onclick="copyCredentialField('${c.id}','password')" class="text-slate-500 hover:text-gold-400 text-xs" title="Copy">⧉</button>
+          </div>
+        </div>
+        <div class="sm:col-span-2">${extra}</div>
+        <div class="sm:col-span-1 flex justify-end gap-2">
+          <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 text-xs font-medium">Edit</button>
+          <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 text-xs font-medium">Del</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-        function addUser(e) {
-            e.preventDefault();
-            const name = document.getElementById('new-user-name').value;
-            const role = document.getElementById('new-user-role').value;
-            db.users.push({ name, role });
-            document.getElementById('new-user-name').value = '';
-            document.getElementById('new-user-role').value = '';
-            saveToLocalStorage();
-            renderUserDirectory();
-        }
+function renderDocuments(items){
+  const view = document.getElementById('documents-view');
+  if(items.length === 0){
+    view.innerHTML = `<div class="col-span-full glass rounded-xl p-10 text-center text-slate-500 text-sm">No documents yet in ${activeDomain}. Click "+ Add Document" to attach one.</div>`;
+    return;
+  }
+  view.innerHTML = items.map(d => {
+    const key = `document:${d.id}`;
+    const checked = selectedIds.has(key);
+    const isImage = d.fileType && d.fileType.startsWith('image/');
+    return `
+    <div class="glass rounded-xl p-4 flex flex-col gap-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          ${selectMode ? `<input type="checkbox" onchange="toggleSelected('${key}')" ${checked?'checked':''} class="w-4 h-4 accent-gold-500 flex-shrink-0">` : ''}
+          <span class="text-xl flex-shrink-0">${isImage ? '🖼️' : '📄'}</span>
+          <div class="min-w-0">
+            <p class="font-semibold text-slate-100 truncate">${escapeHtml(d.name)}</p>
+            <span class="bg-navy-700 text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium">${escapeHtml(d.category)}</span>
+          </div>
+        </div>
+      </div>
+      ${d.notes ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(d.notes)}</p>` : ''}
+      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
+        <span>${escapeHtml(d.fileName)} · ${formatBytes(d.fileSize)}</span>
+        <div class="flex gap-2">
+          <button onclick="viewDocument('${d.id}')" class="text-teal-400 hover:underline font-medium">View</button>
+          <button onclick="deleteDocument('${d.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-        function deleteUser(index) {
-            if (db.users.length <= 1) {
-                alert("You must keep at least one user profile.");
-                return;
-            }
-            db.users.splice(index, 1);
-            saveToLocalStorage();
-            renderUserDirectory();
-        }
+function togglePassword(id){
+  const span = document.getElementById(`pass-${id}`);
+  if(!span) return;
+  const cred = credentialsCache.get(id);
+  if(!cred) return;
+  const revealed = !span.classList.contains('select-none');
+  if(revealed){
+    span.innerText = '••••••••••';
+    span.classList.add('select-none','text-slate-500');
+    span.classList.remove('text-slate-100');
+  } else {
+    span.innerText = cred.password;
+    span.classList.remove('select-none','text-slate-500');
+    span.classList.add('text-slate-100');
+  }
+}
 
-        function switchUserModal() {
-            const modal = document.getElementById('user-modal');
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
+function copyCredentialField(id, field){
+  const cred = credentialsCache.get(id);
+  if(!cred) return;
+  copyText(cred[field] || '');
+}
 
-            db.users.forEach(u => {
-                const btn = document.createElement('button');
-                btn.className = `w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${currentUser.name === u.name ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'}`;
-                btn.innerHTML = `${u.name} <span class="text-xs opacity-75 font-normal float-right uppercase mt-0.5">${u.role}</span>`;
-                btn.onclick = () => {
-                    currentUser = u;
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                    renderDashboard();
-                };
-                list.appendChild(btn);
-            });
+/* ---------- Credential CRUD ---------- */
+function toggleCredFields(){
+  const type = document.getElementById('cred-type').value;
+  document.getElementById('field-url-container').classList.toggle('hidden', type !== 'vendor');
+  document.getElementById('field-billing-container').classList.toggle('hidden', type === 'vendor');
+}
 
-            modal.classList.toggle('hidden');
-            modal.classList.toggle('flex');
-        }
+function openCredentialModal(){
+  document.getElementById('credential-form').reset();
+  document.getElementById('cred-modal-title').innerText = 'Add Credential';
+  document.getElementById('cred-id').value = '';
+  document.getElementById('cred-domain').value = activeDomain;
+  toggleCredFields();
+  openModal('credential-modal');
+}
 
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `vendor_vault_backup_${new Date().toISOString().slice(0,10)}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-        }
+async function editCredential(id){
+  const c = await db.credentials.get(id);
+  if(!c) return;
+  document.getElementById('cred-modal-title').innerText = 'Edit Credential';
+  document.getElementById('cred-id').value = c.id;
+  document.getElementById('cred-domain').value = c.domain;
+  document.getElementById('cred-type').value = c.type;
+  document.getElementById('cred-name').value = c.name;
+  document.getElementById('cred-category').value = c.category;
+  document.getElementById('cred-username').value = c.username;
+  document.getElementById('cred-password').value = c.password;
+  document.getElementById('cred-url').value = c.url || '';
+  document.getElementById('cred-billing').value = c.billing || '';
+  document.getElementById('cred-notes').value = c.notes || '';
+  toggleCredFields();
+  openModal('credential-modal');
+}
 
-        function importData(event) {
-            const fileReader = new FileReader();
-            if (event.target.files[0]) {
-                fileReader.readAsText(event.target.files[0], "UTF-8");
-                fileReader.onload = (e) => {
-                    try {
-                        const parsed = JSON.parse(e.target.result);
-                        if (parsed.credentials && parsed.users) {
-                            db = parsed;
-                            currentUser = db.users[0];
-                            saveToLocalStorage();
-                            renderDashboard();
-                            alert("Data successfully imported!");
-                        } else {
-                            alert("Invalid JSON structure format.");
-                        }
-                    } catch (err) {
-                        alert("Error parsing JSON file.");
-                    }
-                };
-            }
-        }
+async function saveCredential(e){
+  e.preventDefault();
+  const id = document.getElementById('cred-id').value || uid();
+  const record = {
+    id,
+    domain: document.getElementById('cred-domain').value,
+    type: document.getElementById('cred-type').value,
+    name: document.getElementById('cred-name').value.trim(),
+    category: document.getElementById('cred-category').value.trim(),
+    username: document.getElementById('cred-username').value.trim(),
+    password: document.getElementById('cred-password').value,
+    url: document.getElementById('cred-url').value.trim(),
+    billing: document.getElementById('cred-billing').value.trim(),
+    notes: document.getElementById('cred-notes').value.trim(),
+    updatedAt: Date.now()
+  };
+  await db.credentials.put(record);
+  markChanged();
+  closeModal('credential-modal');
+  render();
+  showToast('Credential saved');
+}
 
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
+function deleteCredential(id){
+  showConfirm('Delete Credential', 'This permanently deletes this credential. This cannot be undone.', 'Delete', true, async () => {
+    await db.credentials.delete(id);
+    selectedIds.delete(`credential:${id}`);
+    markChanged();
+    render();
+    showToast('Credential deleted');
+  });
+}
 
-        function escapeAttr(str) {
-            return str.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
-        }
+/* ---------- Document CRUD ---------- */
+function openDocumentModal(){
+  document.getElementById('document-form').reset();
+  document.getElementById('doc-domain').value = activeDomain;
+  document.getElementById('doc-file-hint').innerText = '';
+  openModal('document-modal');
+}
 
-        window.onload = initApp;
-    </script>
+document.addEventListener('change', (e)=>{
+  if(e.target && e.target.id === 'doc-file'){
+    const f = e.target.files[0];
+    document.getElementById('doc-file-hint').innerText = f ? `${f.name} · ${formatBytes(f.size)}` : '';
+  }
+});
+
+async function saveDocument(e){
+  e.preventDefault();
+  const fileInput = document.getElementById('doc-file');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Choose a file first'); return; }
+  const record = {
+    id: uid(),
+    domain: document.getElementById('doc-domain').value,
+    name: document.getElementById('doc-name').value.trim(),
+    category: document.getElementById('doc-category').value.trim(),
+    notes: document.getElementById('doc-notes').value.trim(),
+    fileBlob: file,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+    createdAt: Date.now()
+  };
+  await db.documents.put(record);
+  markChanged();
+  closeModal('document-modal');
+  render();
+  showToast('Document saved');
+}
+
+function deleteDocument(id){
+  showConfirm('Delete Document', 'This permanently deletes this document. This cannot be undone.', 'Delete', true, async () => {
+    await db.documents.delete(id);
+    selectedIds.delete(`document:${id}`);
+    markChanged();
+    render();
+    showToast('Document deleted');
+  });
+}
+
+async function viewDocument(id){
+  const d = await db.documents.get(id);
+  if(!d) return;
+  const url = URL.createObjectURL(d.fileBlob);
+  window.open(url, '_blank');
+}
+
+/* ---------- Share (selected items) ---------- */
+function openShareModal(){
+  document.getElementById('share-count-text').innerText = selectedIds.size === 0
+    ? 'No items selected. Turn on "Select", check items, then come back here.'
+    : `${selectedIds.size} item(s) selected for sharing.`;
+  openModal('share-modal');
+}
+
+async function buildSharePackage(){
+  const credIds = [...selectedIds].filter(k=>k.startsWith('credential:')).map(k=>k.split(':')[1]);
+  const docIds = [...selectedIds].filter(k=>k.startsWith('document:')).map(k=>k.split(':')[1]);
+  const creds = await db.credentials.bulkGet(credIds);
+  const docs = await db.documents.bulkGet(docIds);
+  const docsWithData = await Promise.all(docs.filter(Boolean).map(async d => ({
+    name: d.name, category: d.category, notes: d.notes,
+    fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize,
+    fileData: await blobToBase64(d.fileBlob)
+  })));
+  return {
+    packageType: 'vault-share',
+    createdAt: new Date().toISOString(),
+    credentials: creds.filter(Boolean).map(c => ({ domain:c.domain, type:c.type, name:c.name, category:c.category, username:c.username, password:c.password, url:c.url, billing:c.billing, notes:c.notes })),
+    documents: docsWithData
+  };
+}
+
+async function buildBackupPackage(){
+  const creds = await db.credentials.toArray();
+  const docs = await db.documents.toArray();
+  const docsWithData = await Promise.all(docs.map(async d => ({
+    id: d.id, domain: d.domain, name: d.name, category: d.category, notes: d.notes,
+    fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt,
+    fileData: await blobToBase64(d.fileBlob)
+  })));
+  return { packageType: 'vault-backup', createdAt: new Date().toISOString(), credentials: creds, documents: docsWithData };
+}
+
+/* ---------- Export flow (with optional passphrase encryption) ---------- */
+let pendingExport = null; // { type: 'backup' } | { type: 'share', action: 'download'|'copy' }
+
+function exportBackup(){
+  pendingExport = { type: 'backup' };
+  document.getElementById('export-passphrase-input').value = '';
+  openModal('export-passphrase-modal');
+}
+
+function downloadSharePackage(){
+  if(selectedIds.size === 0){ showToast('Nothing selected'); return; }
+  pendingExport = { type: 'share', action: 'download' };
+  document.getElementById('export-passphrase-input').value = '';
+  closeModal('share-modal');
+  openModal('export-passphrase-modal');
+}
+
+function copySharePackage(){
+  if(selectedIds.size === 0){ showToast('Nothing selected'); return; }
+  pendingExport = { type: 'share', action: 'copy' };
+  document.getElementById('export-passphrase-input').value = '';
+  closeModal('share-modal');
+  openModal('export-passphrase-modal');
+}
+
+async function confirmExportEncrypted(){
+  const pass = document.getElementById('export-passphrase-input').value;
+  if(!pass || pass.length < 4){ showToast('Enter a passphrase (4+ characters)'); return; }
+  await runExport(pass);
+}
+
+async function confirmExportPlain(){
+  await runExport(null);
+}
+
+async function runExport(passphrase){
+  if(!pendingExport) return;
+  closeModal('export-passphrase-modal');
+  const pkg = pendingExport.type === 'backup' ? await buildBackupPackage() : await buildSharePackage();
+  const payload = passphrase ? await encryptPackage(pkg, passphrase) : pkg;
+  if(pendingExport.type === 'backup'){
+    downloadJSON(payload, `vault_backup_${new Date().toISOString().slice(0,10)}.json`);
+    clearChangeCounter();
+    showToast(passphrase ? 'Encrypted backup downloaded' : 'Backup downloaded');
+  } else if(pendingExport.action === 'download'){
+    downloadJSON(payload, `vault_share_${new Date().toISOString().slice(0,10)}.json`);
+    showToast(passphrase ? 'Encrypted share file downloaded' : 'Share file downloaded');
+  } else {
+    await copyText(JSON.stringify(payload));
+  }
+  pendingExport = null;
+}
+
+/* ---------- Import ---------- */
+let pendingImport = null;
+let pendingEncryptedPayload = null;
+
+function openImportModal(){
+  document.getElementById('import-preview').innerHTML = '';
+  document.getElementById('import-paste').value = '';
+  pendingImport = null;
+  openModal('import-modal');
+}
+
+function handleImportFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try{ routeImportData(JSON.parse(ev.target.result)); }
+    catch(err){ showToast('Could not parse that file'); }
+  };
+  reader.readAsText(file);
+}
+
+function parseImportPaste(){
+  const raw = document.getElementById('import-paste').value.trim();
+  if(!raw){ showToast('Paste some JSON first'); return; }
+  try{ routeImportData(JSON.parse(raw)); }
+  catch(err){ showToast('Invalid JSON'); }
+}
+
+function routeImportData(data){
+  if(data && data.vaultEncrypted){
+    pendingEncryptedPayload = data;
+    document.getElementById('import-decrypt-passphrase').value = '';
+    openModal('import-passphrase-modal');
+    return;
+  }
+  processImportData(data);
+}
+
+async function decryptPendingImport(){
+  const pass = document.getElementById('import-decrypt-passphrase').value;
+  if(!pass){ showToast('Enter the passphrase'); return; }
+  try{
+    const obj = await decryptPackage(pendingEncryptedPayload, pass);
+    closeModal('import-passphrase-modal');
+    processImportData(obj);
+  } catch(err){
+    showToast('Wrong passphrase, or the file is corrupted');
+  }
+}
+
+function processImportData(data){
+  pendingImport = data;
+  const preview = document.getElementById('import-preview');
+  if(data.packageType === 'vault-share'){
+    const credCount = (data.credentials||[]).length;
+    const docCount = (data.documents||[]).length;
+    preview.innerHTML = `
+      <div class="glass rounded-lg p-4 mt-2">
+        <p class="text-sm text-slate-200 mb-1">Share package</p>
+        <p class="text-xs text-slate-400 mb-3">${credCount} credential(s), ${docCount} document(s). These will be added as new entries — nothing existing will be overwritten.</p>
+        <div class="max-h-40 overflow-y-auto text-xs text-slate-400 space-y-1 mb-3">
+          ${(data.credentials||[]).map(c=>`<div>🔑 ${escapeHtml(c.name)} <span class="text-slate-600">(${escapeHtml(c.domain)})</span></div>`).join('')}
+          ${(data.documents||[]).map(d=>`<div>📄 ${escapeHtml(d.name)}</div>`).join('')}
+        </div>
+        <button onclick="confirmImportShare()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950">Import These Items</button>
+      </div>`;
+  } else if(data.packageType === 'vault-backup'){
+    preview.innerHTML = `
+      <div class="glass rounded-lg p-4 mt-2">
+        <p class="text-sm text-slate-200 mb-1">Full backup file</p>
+        <p class="text-xs text-slate-400 mb-3">${(data.credentials||[]).length} credential(s), ${(data.documents||[]).length} document(s). Restoring a backup replaces ALL current data on this device.</p>
+        <button onclick="confirmRestoreBackup()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Replace All Data With This Backup</button>
+      </div>`;
+  } else {
+    preview.innerHTML = `<p class="text-sm text-rose-400 mt-2">Unrecognized file format.</p>`;
+  }
+}
+
+async function confirmImportShare(){
+  if(!pendingImport) return;
+  for(const c of (pendingImport.credentials||[])){
+    await db.credentials.put({ id: uid(), domain: c.domain==='business'?'business':'personal', type: c.type||'vendor', name: c.name||'Untitled', category: c.category||'', username: c.username||'', password: c.password||'', url: c.url||'', billing: c.billing||'', notes: c.notes||'', updatedAt: Date.now() });
+  }
+  for(const d of (pendingImport.documents||[])){
+    if(!d.fileData) continue;
+    await db.documents.put({ id: uid(), domain: d.domain==='business'?'business':'personal', name: d.name||'Untitled', category: d.category||'', notes: d.notes||'', fileBlob: base64ToBlob(d.fileData), fileName: d.fileName||'file', fileType: d.fileType||'', fileSize: d.fileSize||0, createdAt: Date.now() });
+  }
+  markChanged();
+  closeModal('import-modal');
+  render();
+  showToast('Items imported');
+}
+
+function confirmRestoreBackup(){
+  if(!pendingImport) return;
+  showConfirm('Replace All Data', 'This replaces ALL current data on this device with the backup contents. This cannot be undone.', 'Replace Data', true, async () => {
+    await db.credentials.clear();
+    await db.documents.clear();
+    for(const c of (pendingImport.credentials||[])){
+      await db.credentials.put({ ...c, id: c.id || uid() });
+    }
+    for(const d of (pendingImport.documents||[])){
+      const blob = d.fileData ? base64ToBlob(d.fileData) : null;
+      if(!blob) continue;
+      await db.documents.put({ id: d.id || uid(), domain: d.domain, name: d.name, category: d.category, notes: d.notes, fileBlob: blob, fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt || Date.now() });
+    }
+    clearChangeCounter();
+    closeModal('import-modal');
+    render();
+    showToast('Backup restored');
+  });
+}
+
+/* ---------- Clear all data ---------- */
+function openClearDataModal(){
+  document.getElementById('clear-confirm-input').value = '';
+  openModal('clear-data-modal');
+}
+async function confirmClearAllData(){
+  if(document.getElementById('clear-confirm-input').value !== 'DELETE'){
+    showToast('Type DELETE to confirm');
+    return;
+  }
+  await db.credentials.clear();
+  await db.documents.clear();
+  clearChangeCounter();
+  closeModal('clear-data-modal');
+  render();
+  showToast('All data cleared');
+}
+
+window.onload = initApp;
+</script>
 </body>
 </html>
