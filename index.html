@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VendorVault Pro - Credential & Subscription Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold tracking-tight">🔒 VendorVault Pro</span>
+                <span id="current-role-badge" class="bg-indigo-800 text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold"></span>
+            </div>
+            <div class="flex items-center space-x-2 flex-wrap justify-center">
+                <button onclick="openUserManagementModal()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Manage Users</button>
+                <button onclick="switchUserModal()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Switch User</button>
+                <button onclick="clearAllData()" class="bg-rose-600 hover:bg-rose-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Clear All Data</button>
+                <button onclick="exportData()" class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium transition">Export JSON</button>
+                <label class="bg-indigo-600 hover:bg-indigo-500 text-sm px-3 py-1.5 rounded-lg font-medium cursor-pointer transition">
+                    Import JSON
+                    <input type="file" id="import-file" accept=".json" onchange="importData(event)" class="hidden">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+        
+        <!-- Navigation Tabs (Vendors vs Subscriptions) -->
+        <div class="flex border-b border-slate-200 mb-6">
+            <button onclick="switchTab('vendors')" id="tab-vendors" class="py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition">Vendors & Sites</button>
+            <button onclick="switchTab('subscriptions')" id="tab-subscriptions" class="py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">Subscriptions & Tools</button>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div class="w-full md:w-1/3">
+                <input type="text" id="search-input" placeholder="Search name, category, username..." oninput="renderDashboard()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm">
+            </div>
+            <div id="admin-actions" class="flex space-x-3 hidden">
+                <button onclick="openCredentialModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition shadow-sm">+ Add Item</button>
+            </div>
+        </div>
+
+        <!-- Credentials/Subscriptions Table -->
+        <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider font-semibold border-b border-slate-200">
+                            <th class="px-6 py-3">Name / Service</th>
+                            <th class="px-6 py-3">Category</th>
+                            <th class="px-6 py-3">Username / ID</th>
+                            <th class="px-6 py-3">Password / Key</th>
+                            <th class="px-6 py-3" id="dynamic-extra-col">URL / Billing Cycle</th>
+                            <th class="px-6 py-3">Allowed Roles</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="credentials-table-body" class="divide-y divide-slate-200 text-sm">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="credential-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-4">Add Item</h3>
+            <form id="credential-form" onsubmit="saveCredential(event)" class="space-y-4">
+                <input type="hidden" id="cred-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Type</label>
+                    <select id="cred-type" onchange="toggleModalFields()" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <option value="vendor">Vendor / Site</option>
+                        <option value="subscription">Subscription / Service</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Name</label>
+                    <input type="text" id="cred-name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="e.g. AWS or GitHub">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Category</label>
+                    <input type="text" id="cred-category" placeholder="e.g. Hosting, Marketing, DevTools" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Username / Email</label>
+                    <input type="text" id="cred-username" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Password</label>
+                    <input type="text" id="cred-password" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                
+                <!-- Conditional Fields -->
+                <div id="field-url-container">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Login URL</label>
+                    <input type="url" id="cred-url" placeholder="https://example.com/login" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div id="field-billing-container" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Billing Cycle & Cost</label>
+                    <input type="text" id="cred-billing" placeholder="e.g. Monthly - $49/mo" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Allowed Roles (Hold Ctrl/Cmd for multiple)</label>
+                    <select id="cred-roles" multiple required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 h-24">
+                        <!-- Populated dynamically based on registered roles -->
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeCredentialModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Users Modal -->
+    <div id="user-management-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-4">User & Role Directory</h3>
+            
+            <form onsubmit="addUser(event)" class="space-y-3 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h4 class="text-xs font-bold text-slate-600 uppercase">Add New User</h4>
+                <div>
+                    <input type="text" id="new-user-name" placeholder="Full Name" required class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
+                </div>
+                <div>
+                    <input type="text" id="new-user-role" placeholder="Role Tag (e.g. Admin, Finance, Engineering)" required class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2 rounded-lg transition">Add User Profile</button>
+            </form>
+
+            <h4 class="text-xs font-bold text-slate-600 uppercase mb-2">Existing Users</h4>
+            <div id="user-directory-list" class="space-y-2 max-h-40 overflow-y-auto mb-4 border border-slate-200 rounded-lg p-2 bg-white">
+                <!-- Dynamic list -->
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeUserManagementModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Switch User Simulation Modal -->
+    <div id="user-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
+            <h3 class="text-lg font-bold text-slate-900 mb-2">Simulate Active User</h3>
+            <p class="text-sm text-slate-500 mb-4">Select a user profile to check access permissions.</p>
+            <div id="user-list" class="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                <!-- Dynamic user buttons -->
+            </div>
+            <button onclick="switchUserModal()" class="w-full px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Clean initial state with a single default Admin user and empty records
+        let db = {
+            users: [
+                { name: "Owner / Admin", role: "Admin" }
+            ],
+            credentials: []
+        };
+
+        let currentUser = db.users[0]; 
+        let activeTab = 'vendors'; 
+
+        function initApp() {
+            // Try loading from localStorage if previously saved
+            const saved = localStorage.getItem('vendorVault_db');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.users && parsed.credentials) {
+                        db = parsed;
+                        currentUser = db.users[0];
+                    }
+                } catch (e) {
+                    console.error("Could not load local storage data");
+                }
+            }
+            renderDashboard();
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('vendorVault_db', JSON.stringify(db));
+        }
+
+        function clearAllData() {
+            if (confirm("Are you sure you want to delete all entries and user profiles? This will reset the app to a blank slate.")) {
+                db = {
+                    users: [{ name: "Owner / Admin", role: "Admin" }],
+                    credentials: []
+                };
+                currentUser = db.users[0];
+                localStorage.removeItem('vendorVault_db');
+                renderDashboard();
+                alert("App has been reset to a clean state.");
+            }
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            const btnVendors = document.getElementById('tab-vendors');
+            const btnSubs = document.getElementById('tab-subscriptions');
+
+            if (tab === 'vendors') {
+                btnVendors.className = "py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition";
+                btnSubs.className = "py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
+            } else {
+                btnSubs.className = "py-3 px-6 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition";
+                btnVendors.className = "py-3 px-6 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition";
+            }
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            // Ensure current user still exists
+            if (!db.users.some(u => u.name === currentUser.name)) {
+                currentUser = db.users[0];
+            }
+
+            document.getElementById('current-role-badge').innerText = `${currentUser.name} (${currentUser.role})`;
+            const adminActions = document.getElementById('admin-actions');
+            if (currentUser.role === 'Admin') {
+                adminActions.classList.remove('hidden');
+            } else {
+                adminActions.classList.add('hidden');
+            }
+
+            document.getElementById('dynamic-extra-col').innerText = activeTab === 'vendors' ? 'Login URL' : 'Billing & Cost';
+
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const tbody = document.getElementById('credentials-table-body');
+            tbody.innerHTML = '';
+
+            const filtered = db.credentials.filter(cred => {
+                const matchesTab = (activeTab === 'vendors' && cred.type === 'vendor') || (activeTab === 'subscriptions' && cred.type === 'subscription');
+                const hasAccess = currentUser.role === 'Admin' || cred.roles.includes(currentUser.role);
+                const matchesSearch = cred.name.toLowerCase().includes(searchTerm) || cred.category.toLowerCase().includes(searchTerm) || cred.username.toLowerCase().includes(searchTerm);
+                return matchesTab && hasAccess && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">No records found. Click "+ Add Item" above to get started.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(cred => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                
+                let extraColContent = '';
+                if (cred.type === 'vendor') {
+                    extraColContent = cred.url ? `<a href="${escapeAttr(cred.url)}" target="_blank" class="text-indigo-600 hover:underline text-xs truncate block max-w-xs">🔗 ${escapeHtml(cred.url)}</a>` : '<span class="text-slate-400 text-xs">No URL</span>';
+                } else {
+                    extraColContent = `<span class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(cred.billing || 'N/A')}</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-semibold text-slate-900">${escapeHtml(cred.name)}</td>
+                    <td class="px-6 py-4"><span class="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-xs font-medium">${escapeHtml(cred.category)}</span></td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-600">${escapeHtml(cred.username)}</td>
+                    <td class="px-6 py-4 font-mono text-xs">
+                        <span id="pass-${cred.id}" class="select-none text-slate-400">••••••••••••</span>
+                        <button onclick="togglePassword('${cred.id}', '${escapeAttr(cred.password)}')"" class="ml-2 text-indigo-600 hover:underline text-xs font-medium">Reveal</button>
+                    </td>
+                    <td class="px-6 py-4">${extraColContent}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-wrap gap-1">
+                            ${cred.roles.map(r => `<span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded font-semibold">${r}</span>`).join('')}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        ${currentUser.role === 'Admin' ? `
+                            <button onclick="editCredential('${cred.id}')" class="text-indigo-600 hover:text-indigo-900 text-xs font-medium">Edit</button>
+                            <button onclick="deleteCredential('${cred.id}')" class="text-rose-600 hover:text-rose-900 text-xs font-medium">Delete</button>
+                        ` : '<span class="text-slate-400 text-xs">View Only</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function togglePassword(id, rawPassword) {
+            const span = document.getElementById(`pass-${id}`);
+            if (span.classList.contains('select-none')) {
+                span.innerText = rawPassword;
+                span.classList.remove('select-none', 'text-slate-400');
+                span.classList.add('text-slate-900');
+            } else {
+                span.innerText = '••••••••••••';
+                span.classList.add('select-none', 'text-slate-400');
+                span.classList.remove('text-slate-900');
+            }
+        }
+
+        function populateRoleSelects(selectedRoles = []) {
+            const uniqueRoles = Array.from(new Set(['Admin', ...db.users.map(u => u.role)]));
+            const select = document.getElementById('cred-roles');
+            select.innerHTML = '';
+            uniqueRoles.forEach(role => {
+                const opt = document.createElement('option');
+                opt.value = role;
+                opt.innerText = role;
+                if (selectedRoles.includes(role)) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function openCredentialModal(cred = null) {
+            const modal = document.getElementById('credential-modal');
+            const title = document.getElementById('modal-title');
+            document.getElementById('credential-form').reset();
+            
+            if (cred) {
+                title.innerText = "Edit Record";
+                document.getElementById('cred-id').value = cred.id;
+                document.getElementById('cred-type').value = cred.type;
+                document.getElementById('cred-name').value = cred.name;
+                document.getElementById('cred-category').value = cred.category;
+                document.getElementById('cred-username').value = cred.username;
+                document.getElementById('cred-password').value = cred.password;
+                document.getElementById('cred-url').value = cred.url || '';
+                document.getElementById('cred-billing').value = cred.billing || '';
+                populateRoleSelects(cred.roles);
+            } else {
+                title.innerText = "Add Record";
+                document.getElementById('cred-id').value = '';
+                document.getElementById('cred-type').value = activeTab === 'vendors' ? 'vendor' : 'subscription';
+                populateRoleSelects(['Admin']);
+            }
+            toggleModalFields();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function toggleModalFields() {
+            const type = document.getElementById('cred-type').value;
+            const urlContainer = document.getElementById('field-url-container');
+            const billingContainer = document.getElementById('field-billing-container');
+
+            if (type === 'vendor') {
+                urlContainer.classList.remove('hidden');
+                billingContainer.classList.add('hidden');
+            } else {
+                urlContainer.classList.add('hidden');
+                billingContainer.classList.remove('hidden');
+            }
+        }
+
+        function closeCredentialModal() {
+            document.getElementById('credential-modal').classList.add('hidden');
+            document.getElementById('credential-modal').classList.remove('flex');
+        }
+
+        function saveCredential(e) {
+            e.preventDefault();
+            const id = document.getElementById('cred-id').value;
+            const type = document.getElementById('cred-type').value;
+            const name = document.getElementById('cred-name').value;
+            const category = document.getElementById('cred-category').value;
+            const username = document.getElementById('cred-username').value;
+            const password = document.getElementById('cred-password').value;
+            const url = document.getElementById('cred-url').value;
+            const billing = document.getElementById('cred-billing').value;
+            const roles = Array.from(document.getElementById('cred-roles').selectedOptions).map(opt => opt.value);
+
+            if (id) {
+                const target = db.credentials.find(c => c.id === id);
+                if (target) {
+                    target.type = type;
+                    target.name = name;
+                    target.category = category;
+                    target.username = username;
+                    target.password = password;
+                    target.url = url;
+                    target.billing = billing;
+                    target.roles = roles;
+                }
+            } else {
+                const newCred = {
+                    id: Date.now().toString(),
+                    type, name, category, username, password, url, billing, roles
+                };
+                db.credentials.push(newCred);
+            }
+
+            saveToLocalStorage();
+            closeCredentialModal();
+            renderDashboard();
+        }
+
+        function editCredential(id) {
+            const cred = db.credentials.find(c => c.id === id);
+            if (cred) openCredentialModal(cred);
+        }
+
+        function deleteCredential(id) {
+            if (confirm("Are you sure you want to delete this item?")) {
+                db.credentials = db.credentials.filter(c => c.id !== id);
+                saveToLocalStorage();
+                renderDashboard();
+            }
+        }
+
+        function openUserManagementModal() {
+            renderUserDirectory();
+            const modal = document.getElementById('user-management-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeUserManagementModal() {
+            document.getElementById('user-management-modal').classList.add('hidden');
+            document.getElementById('user-management-modal').classList.remove('flex');
+        }
+
+        function renderUserDirectory() {
+            const list = document.getElementById('user-directory-list');
+            list.innerHTML = '';
+            db.users.forEach((u, index) => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center text-sm py-1 border-b border-slate-100 last:border-none";
+                div.innerHTML = `
+                    <span><strong>${escapeHtml(u.name)}</strong> <span class="text-xs text-slate-500 uppercase">(${escapeHtml(u.role)})</span></span>
+                    ${db.users.length > 1 ? `<button onclick="deleteUser(${index})" class="text-rose-600 hover:underline text-xs">Remove</button>` : '<span class="text-xs text-slate-400">Primary</span>'}
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function addUser(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-user-name').value;
+            const role = document.getElementById('new-user-role').value;
+            db.users.push({ name, role });
+            document.getElementById('new-user-name').value = '';
+            document.getElementById('new-user-role').value = '';
+            saveToLocalStorage();
+            renderUserDirectory();
+        }
+
+        function deleteUser(index) {
+            if (db.users.length <= 1) {
+                alert("You must keep at least one user profile.");
+                return;
+            }
+            db.users.splice(index, 1);
+            saveToLocalStorage();
+            renderUserDirectory();
+        }
+
+        function switchUserModal() {
+            const modal = document.getElementById('user-modal');
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+
+            db.users.forEach(u => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${currentUser.name === u.name ? 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200' : 'bg-slate-50 hover:bg-slate-100 text-slate-700'}`;
+                btn.innerHTML = `${u.name} <span class="text-xs opacity-75 font-normal float-right uppercase mt-0.5">${u.role}</span>`;
+                btn.onclick = () => {
+                    currentUser = u;
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    renderDashboard();
+                };
+                list.appendChild(btn);
+            });
+
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `vendor_vault_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData(event) {
+            const fileReader = new FileReader();
+            if (event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0], "UTF-8");
+                fileReader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (parsed.credentials && parsed.users) {
+                            db = parsed;
+                            currentUser = db.users[0];
+                            saveToLocalStorage();
+                            renderDashboard();
+                            alert("Data successfully imported!");
+                        } else {
+                            alert("Invalid JSON structure format.");
+                        }
+                    } catch (err) {
+                        alert("Error parsing JSON file.");
+                    }
+                };
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function escapeAttr(str) {
+            return str.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
