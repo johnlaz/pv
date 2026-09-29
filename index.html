@@ -70,7 +70,7 @@
 </header>
 
 <!-- Domain switcher -->
-<div class="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
+<div id="domain-switcher-wrap" class="max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6">
   <div class="flex items-center justify-center gap-2 mb-6">
     <div class="glass p-1 rounded-xl inline-flex">
       <button id="domain-personal" onclick="setDomain('personal')" class="px-5 py-2 rounded-lg text-sm font-semibold transition">Personal</button>
@@ -97,6 +97,7 @@
   <div class="flex border-b border-white/10 mb-5 gap-1">
     <button onclick="setTab('credentials')" id="tab-credentials" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Credentials</button>
     <button onclick="setTab('documents')" id="tab-documents" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Documents</button>
+    <button onclick="setTab('appbackups')" id="tab-appbackups" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">App Backups</button>
   </div>
 
   <!-- Controls -->
@@ -108,6 +109,7 @@
       <button onclick="toggleSelectMode()" id="select-mode-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Select</button>
       <button onclick="openCredentialModal()" id="add-credential-btn" class="text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Credential</button>
       <button onclick="openDocumentModal()" id="add-document-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Document</button>
+      <button onclick="openAppBackupModal()" id="add-appbackup-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add App Backups</button>
     </div>
   </div>
 
@@ -116,6 +118,9 @@
 
   <!-- Documents grid -->
   <div id="documents-view" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+  <!-- App backups -->
+  <div id="appbackups-view" class="hidden"></div>
 
   <p class="text-center text-[11px] text-slate-500 mt-10 max-w-md mx-auto leading-relaxed">
     Data is stored only on this device (unencrypted, in your browser's local database). Anyone with access to this browser profile can read it — protect this device the way you'd protect a physical vault. Backup and Share files can be encrypted with a passphrase at export time, so a file leaving this device doesn't have to leave in plain text.
@@ -236,9 +241,12 @@
 </div>
 
 <!-- Import Modal -->
-<div id="import-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="import-modal" onclick="if(event.target===this)closeModal('import-modal')" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
-    <h3 class="font-serif font-bold text-lg text-gold-400 mb-4">Import</h3>
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-serif font-bold text-lg text-gold-400">Import</h3>
+      <button onclick="closeModal('import-modal')" aria-label="Close" class="text-slate-400 hover:text-slate-100 text-xl leading-none px-2">&times;</button>
+    </div>
     <div class="space-y-3 mb-4">
       <label class="block text-[11px] font-semibold text-slate-400 uppercase">Upload a share or backup file</label>
       <input type="file" id="import-file-input" accept=".json" onchange="handleImportFile(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
@@ -247,6 +255,57 @@
       <button onclick="parseImportPaste()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Parse Pasted JSON</button>
     </div>
     <div id="import-preview"></div>
+    <div class="border-t border-white/10 mt-5 pt-4 space-y-3">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <label class="block text-[11px] font-semibold text-slate-400 uppercase">Import passwords from Excel</label>
+        <button onclick="downloadPasswordTemplate()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-teal-300 border border-teal-500/30 hover:bg-teal-600/30 transition">Download Template (.xlsx)</button>
+      </div>
+      <input type="file" id="xlsx-import-input" accept=".xlsx,.xls,.csv" onchange="handleXlsxImportFile(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
+      <p class="text-[11px] text-slate-500">Download the template, fill it in, then choose it here. You'll see a preview with any problems before anything is saved.</p>
+    </div>
+    <div class="flex justify-end pt-4">
+      <button onclick="closeModal('import-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Excel Import Modal -->
+<div id="xlsx-import-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-3">Import Passwords from Excel</h3>
+    <div id="xlsx-preview"></div>
+    <div class="flex justify-end gap-3 pt-4">
+      <button onclick="cancelXlsxImport()" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button id="xlsx-import-btn" onclick="confirmXlsxImport()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Import</button>
+    </div>
+    <p class="text-[11px] text-slate-500 mt-3">The spreadsheet holds passwords in plain text. Delete it (and any cloud or recycle-bin copy) once the import is done.</p>
+  </div>
+</div>
+
+<!-- Add App Backups Modal -->
+<div id="appbackup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Add App Backups</h3>
+    <p class="text-xs text-slate-400 mb-4">Choose one or more app backup files (.json). Each app keeps one backup: a newer, same-or-larger file replaces the stored one automatically. An older or smaller file is flagged and you decide.</p>
+    <input type="file" id="appbackup-file-input" accept=".json,application/json" multiple onchange="stageAppBackupFiles(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
+    <div id="appbackup-staging" class="mt-4 space-y-2"></div>
+    <div class="flex justify-end gap-3 pt-4">
+      <button onclick="closeModal('appbackup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="saveStagedBackups()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save Backups</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="appbackup-single-input" accept=".json,application/json" class="hidden" onchange="handleSingleBackupPick(event)">
+
+<!-- App Backup Conflict Modal -->
+<div id="appbackup-conflict-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <h3 id="appbackup-conflict-title" class="font-serif font-bold text-lg text-amber-300 mb-1">Backup flagged</h3>
+    <div id="appbackup-conflict-body"></div>
+    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+      <button onclick="resolveConflict(false)" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Keep Stored Backup</button>
+      <button onclick="resolveConflict(true)" class="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Replace Anyway</button>
+    </div>
   </div>
 </div>
 
@@ -254,7 +313,7 @@
 <div id="clear-data-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
     <h3 class="font-serif font-bold text-lg text-rose-400 mb-2">Clear All Data</h3>
-    <p class="text-sm text-slate-400 mb-4">This permanently deletes every credential and document on this device. This cannot be undone. Type <span class="font-mono text-rose-300">DELETE</span> to confirm.</p>
+    <p class="text-sm text-slate-400 mb-4">This permanently deletes every credential, document, and stored app backup on this device. This cannot be undone. Type <span class="font-mono text-rose-300">DELETE</span> to confirm.</p>
     <input type="text" id="clear-confirm-input" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4" placeholder="DELETE">
     <div class="flex justify-end gap-3">
       <button onclick="closeModal('clear-data-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
@@ -311,6 +370,11 @@ db.version(1).stores({
   credentials: 'id, domain, type, name, category',
   documents: 'id, domain, name, category'
 });
+db.version(2).stores({
+  credentials: 'id, domain, type, name, category',
+  documents: 'id, domain, name, category',
+  appBackups: 'id, appName'
+});
 
 /* ---------- State ---------- */
 let activeDomain = 'personal';
@@ -324,12 +388,16 @@ let pendingChanges = parseInt(localStorage.getItem('vault_pendingChanges') || '0
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function escapeHtml(str){ return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 function formatBytes(bytes){ if(!bytes) return '0 B'; const u=['B','KB','MB','GB']; let i=0; while(bytes>=1024 && i<u.length-1){bytes/=1024;i++;} return bytes.toFixed(1)+' '+u[i]; }
-function showToast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.classList.remove('hidden'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.add('hidden'),2200); }
+function showToast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.classList.remove('hidden'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.add('hidden'),3500); }
 function closeModal(id){ const m=document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
 function openModal(id){ const m=document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
 function blobToBase64(blob){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(blob); }); }
 function base64ToBlob(dataUrl){ const [meta, data] = dataUrl.split(','); const mimeMatch = meta.match(/:(.*?);/); const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'; const bin = atob(data); const arr = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return new Blob([arr], {type: mime}); }
 function downloadJSON(obj, filename){ const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
+function downloadBlob(blob, filename){ const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 4000); }
+function normKey(s){ return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g,''); }
+// Only http(s) links are made clickable — imported/shared data must never be able to inject javascript: URLs
+function safeHref(u){ try{ const x = new URL(String(u)); return (x.protocol==='http:' || x.protocol==='https:') ? x.href : ''; }catch(e){ return ''; } }
 async function copyText(text){ try{ await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); }catch(e){ showToast('Could not copy — try downloading instead'); } }
 
 /* ---------- Change tracking / backup reminder ---------- */
@@ -449,14 +517,20 @@ function setDomain(domain){
 
 function setTab(tab){
   activeTab = tab;
-  const cred = document.getElementById('tab-credentials');
-  const doc = document.getElementById('tab-documents');
-  cred.className = tab==='credentials' ? 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition' : 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
-  doc.className = tab==='documents' ? 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition' : 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
-  document.getElementById('credentials-view').classList.toggle('hidden', tab!=='credentials');
-  document.getElementById('documents-view').classList.toggle('hidden', tab!=='documents');
+  const on  = 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition';
+  const off = 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
+  ['credentials','documents','appbackups'].forEach(t => {
+    document.getElementById('tab-'+t).className = tab===t ? on : off;
+    document.getElementById(t+'-view').classList.toggle('hidden', tab!==t);
+  });
   document.getElementById('add-credential-btn').classList.toggle('hidden', tab!=='credentials');
   document.getElementById('add-document-btn').classList.toggle('hidden', tab!=='documents');
+  document.getElementById('add-appbackup-btn').classList.toggle('hidden', tab!=='appbackups');
+  // App backups are not Personal/Business scoped and aren't shareable, so hide those controls there
+  document.getElementById('select-mode-btn').classList.toggle('hidden', tab==='appbackups');
+  document.getElementById('domain-switcher-wrap').classList.toggle('hidden', tab==='appbackups');
+  document.querySelector('main').classList.toggle('pt-6', tab==='appbackups');
+  document.getElementById('search-input').placeholder = tab==='appbackups' ? 'Search app or file name...' : 'Search name, category, username...';
   render();
 }
 
@@ -487,13 +561,15 @@ async function render(){
       c.username.toLowerCase().includes(search)
     ).sort((a,b)=>a.name.localeCompare(b.name));
     renderCredentials(filtered);
-  } else {
+  } else if(activeTab === 'documents'){
     const all = await db.documents.where('domain').equals(activeDomain).toArray();
     const filtered = all.filter(d =>
       d.name.toLowerCase().includes(search) ||
       d.category.toLowerCase().includes(search)
     ).sort((a,b)=>a.name.localeCompare(b.name));
     renderDocuments(filtered);
+  } else {
+    await renderAppBackups();
   }
 }
 
@@ -509,7 +585,7 @@ function renderCredentials(items){
     const key = `credential:${c.id}`;
     const checked = selectedIds.has(key);
     const extra = c.type === 'vendor'
-      ? (c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" rel="noopener" class="text-teal-400 hover:underline text-xs truncate block max-w-[220px]">🔗 ${escapeHtml(c.url)}</a>` : '<span class="text-slate-500 text-xs">No URL</span>')
+      ? (c.url ? (safeHref(c.url) ? `<a href="${escapeHtml(safeHref(c.url))}" target="_blank" rel="noopener" class="text-teal-400 hover:underline text-xs truncate block max-w-[220px]">🔗 ${escapeHtml(c.url)}</a>` : `<span class="text-slate-500 text-xs truncate block max-w-[220px]" title="Not a web address, so it isn't linked">${escapeHtml(c.url)}</span>`) : '<span class="text-slate-500 text-xs">No URL</span>')
       : `<span class="bg-teal-900/40 text-teal-300 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(c.billing || 'N/A')}</span>`;
     return `
     <div class="glass rounded-xl p-4 flex items-start gap-3">
@@ -758,7 +834,13 @@ async function buildBackupPackage(){
     fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt,
     fileData: await blobToBase64(d.fileBlob)
   })));
-  return { packageType: 'vault-backup', createdAt: new Date().toISOString(), credentials: creds, documents: docsWithData };
+  const appRecs = await db.appBackups.toArray();
+  const appBackups = await Promise.all(appRecs.map(async a => ({
+    id: a.id, appName: a.appName, fileName: a.fileName, fileSize: a.fileSize,
+    backupDate: a.backupDate, dateSource: a.dateSource, addedAt: a.addedAt, flag: a.flag || null,
+    fileData: await blobToBase64(a.fileBlob)
+  })));
+  return { packageType: 'vault-backup', createdAt: new Date().toISOString(), credentials: creds, documents: docsWithData, appBackups };
 }
 
 /* ---------- Export flow (with optional passphrase encryption) ---------- */
@@ -804,7 +886,8 @@ async function runExport(passphrase){
   if(pendingExport.type === 'backup'){
     downloadJSON(payload, `vault_backup_${new Date().toISOString().slice(0,10)}.json`);
     clearChangeCounter();
-    showToast(passphrase ? 'Encrypted backup downloaded' : 'Backup downloaded');
+    const n = `${(pkg.credentials||[]).length} credentials, ${(pkg.documents||[]).length} documents, ${(pkg.appBackups||[]).length} app backups`;
+    showToast((passphrase ? 'Encrypted backup downloaded: ' : 'Backup downloaded: ') + n);
   } else if(pendingExport.action === 'download'){
     downloadJSON(payload, `vault_share_${new Date().toISOString().slice(0,10)}.json`);
     showToast(passphrase ? 'Encrypted share file downloaded' : 'Share file downloaded');
@@ -885,7 +968,7 @@ function processImportData(data){
     preview.innerHTML = `
       <div class="glass rounded-lg p-4 mt-2">
         <p class="text-sm text-slate-200 mb-1">Full backup file</p>
-        <p class="text-xs text-slate-400 mb-3">${(data.credentials||[]).length} credential(s), ${(data.documents||[]).length} document(s). Restoring a backup replaces ALL current data on this device.</p>
+        <p class="text-xs text-slate-400 mb-3">${(data.credentials||[]).length} credential(s), ${(data.documents||[]).length} document(s), ${(data.appBackups||[]).length} app backup(s). Restoring a backup replaces ALL current data on this device.</p>
         <button onclick="confirmRestoreBackup()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Replace All Data With This Backup</button>
       </div>`;
   } else {
@@ -921,11 +1004,622 @@ function confirmRestoreBackup(){
       if(!blob) continue;
       await db.documents.put({ id: d.id || uid(), domain: d.domain, name: d.name, category: d.category, notes: d.notes, fileBlob: blob, fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt || Date.now() });
     }
+    // Backups made before app-backup storage existed have no appBackups key — leave stored app backups alone in that case
+    if(Array.isArray(pendingImport.appBackups)){
+      await db.appBackups.clear();
+      for(const a of pendingImport.appBackups){
+        if(!a.fileData) continue;
+        const blob = base64ToBlob(a.fileData);
+        await db.appBackups.put({ id: a.id || normKey(a.appName), appName: a.appName, fileName: a.fileName, fileSize: a.fileSize || blob.size, fileBlob: blob, backupDate: a.backupDate, dateSource: a.dateSource || 'file date', addedAt: a.addedAt || Date.now(), flag: a.flag || null });
+      }
+    }
     clearChangeCounter();
     closeModal('import-modal');
     render();
     showToast('Backup restored');
   });
+}
+
+/* ================================================================
+   APP BACKUPS — one stored JSON backup per app.
+   Newer + same-or-larger  -> replaces automatically
+   Older and/or smaller    -> flagged, you choose (default: keep stored)
+   ================================================================ */
+const KNOWN_APPS = []; // intentionally empty — apps appear as you add their backups
+const APP_ALIASES = {};
+const BACKUP_DATE_KEYS = ['createdAt','exportedAt','exportDate','exportedOn','backupDate','backupAt','backupTime','savedAt','generatedAt','timestamp','exported','created','date','updatedAt','lastModified'];
+const APP_ID_KEYS = ['app','appName','app_name','application','source','name','packageType','type'];
+let customAppNames = [];
+let stagedBackups = [];
+let singleTargetApp = null;
+let conflictQueue = [];
+let conflictStats = null;
+
+async function refreshAppList(){
+  try{ customAppNames = (await db.appBackups.toArray()).map(r => r.appName); }catch(e){ customAppNames = []; }
+}
+function getAppList(){
+  const seen = new Map();
+  [...KNOWN_APPS, ...customAppNames].forEach(n => { const k = normKey(n); if(k && !seen.has(k)) seen.set(k, n); });
+  return [...seen.values()].sort((a,b) => a.localeCompare(b, undefined, {sensitivity:'base'}));
+}
+function canonicalAppName(n){ const k = normKey(n); return getAppList().find(a => normKey(a) === k) || String(n).trim(); }
+function appNameByKey(key){ return getAppList().find(a => normKey(a) === key) || key; }
+function appMatchKeys(app){ const k = normKey(app); return [k, ...(APP_ALIASES[k] || [])]; }
+
+function coerceTimestamp(v){
+  if(v == null || v === '') return null;
+  let t = null;
+  if(typeof v === 'number') t = v < 1e11 ? v * 1000 : v;
+  else if(typeof v === 'string'){
+    const s = v.trim();
+    if(/^\d{9,13}$/.test(s)){ const n = Number(s); t = n < 1e11 ? n * 1000 : n; }
+    else t = Date.parse(s);
+  }
+  if(t == null || isNaN(t)) return null;
+  if(t < Date.UTC(2000,0,1) || t > Date.now() + 864e5) return null;
+  return t;
+}
+function extractEmbeddedDate(parsed){
+  if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const containers = [parsed];
+  ['meta','metadata','_meta','info','header','manifest'].forEach(k => { if(parsed[k] && typeof parsed[k] === 'object' && !Array.isArray(parsed[k])) containers.push(parsed[k]); });
+  for(const key of BACKUP_DATE_KEYS){
+    for(const c of containers){ const t = coerceTimestamp(c[key]); if(t) return t; }
+  }
+  return null;
+}
+function dateFromFileName(name){
+  const m = String(name).match(/(?:^|\D)(20\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])(?:[T_\-. ]?(\d{2})[-_.:]?(\d{2}))?/);
+  if(!m) return null;
+  let hh = 0, mm = 0;
+  if(m[4] !== undefined && +m[4] < 24 && +m[5] < 60){ hh = +m[4]; mm = +m[5]; }
+  const t = new Date(+m[1], +m[2]-1, +m[3], hh, mm).getTime();
+  return (t > Date.now() + 864e5) ? null : t;
+}
+// Priority: date inside the JSON > date in the file name > file's modified time
+function resolveBackupDate(parsed, fileName, lastModified){
+  const emb = extractEmbeddedDate(parsed);
+  if(emb) return { ts: emb, source: 'contents' };
+  const fn = dateFromFileName(fileName);
+  if(fn) return { ts: fn, source: 'filename' };
+  return { ts: lastModified || Date.now(), source: 'file date' };
+}
+function dateSourceLabel(src){ return src === 'contents' ? 'date inside file' : src === 'filename' ? 'date from file name' : 'file modified date'; }
+function formatBackupDate(ts, src){
+  const d = new Date(ts);
+  return src === 'filename' ? d.toLocaleDateString([], {dateStyle:'medium'}) : d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+}
+function formatDuration(ms){
+  const m = Math.round(ms / 60000);
+  if(m < 1) return 'under a minute';
+  if(m < 60) return m + ' min';
+  const h = Math.round(m / 60);
+  if(h < 48) return h + ' hr';
+  return Math.round(h / 24) + ' days';
+}
+function guessAppName(fileName, parsed){
+  const sources = [String(fileName || '').replace(/\.[^.]+$/, '')];
+  if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)){
+    const boxes = [parsed];
+    ['meta','metadata','_meta','info','header','manifest'].forEach(k => { if(parsed[k] && typeof parsed[k] === 'object') boxes.push(parsed[k]); });
+    boxes.forEach(b => APP_ID_KEYS.forEach(k => { if(typeof b[k] === 'string' && b[k].length < 80) sources.push(b[k]); }));
+  }
+  let best = null, bestLen = 0;
+  for(const src of sources){
+    const flat = normKey(src);
+    const tokens = String(src).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    for(const app of getAppList()){
+      for(const key of appMatchKeys(app)){
+        const hit = key.length <= 4 ? tokens.includes(key) : flat.includes(key);
+        if(hit && key.length > bestLen){ best = app; bestLen = key.length; }
+      }
+    }
+  }
+  return best;
+}
+// For files that don't match an app you've already added: propose a name from the JSON or the file name
+function suggestAppName(fileName, parsed){
+  if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)){
+    for(const k of ['app','appName','app_name','application']){
+      if(typeof parsed[k] === 'string' && parsed[k].trim() && parsed[k].length < 60) return parsed[k].trim();
+    }
+  }
+  const n = String(fileName || '').replace(/\.[^.]+$/, '')
+    .replace(/(?:^|\D)20\d{2}[-_.]?\d{2}[-_.]?\d{2}(?:[T_\-. ]?\d{2}[-_.:]?\d{2}(?:[-_.:]?\d{2})?)?/g, ' ')
+    .replace(/[_\-.]+/g, ' ')
+    .replace(/\b(backup|backups|export|exported|data|copy|latest|final|v?\d+)\b/gi, ' ')
+    .replace(/\s+/g, ' ').trim();
+  return n.length >= 2 ? n : '';
+}
+function compareBackups(existing, cand){
+  const dateDiff = cand.backupDate - existing.backupDate;
+  const sizeDiff = cand.fileSize - existing.fileSize;
+  return { dateDiff, sizeDiff, older: dateDiff < 0, smaller: sizeDiff < 0, identical: dateDiff === 0 && sizeDiff === 0 };
+}
+async function inspectBackupFile(file){
+  const item = { file, fileName: file.name, fileSize: file.size, appName: '', other: false, error: '' };
+  try{
+    const parsed = JSON.parse(await file.text());
+    const d = resolveBackupDate(parsed, file.name, file.lastModified);
+    item.backupDate = d.ts; item.dateSource = d.source;
+    item.appName = guessAppName(file.name, parsed) || '';
+    if(!item.appName){
+      const sug = suggestAppName(file.name, parsed);
+      if(sug){ item.appName = sug; item.other = true; }
+    }
+  } catch(err){ item.error = 'Not a valid JSON file — skipped'; }
+  return item;
+}
+
+/* ----- Add dialog (multi-file) ----- */
+async function openAppBackupModal(){
+  stagedBackups = [];
+  document.getElementById('appbackup-file-input').value = '';
+  await refreshAppList();
+  renderStaging();
+  openModal('appbackup-modal');
+}
+async function stageAppBackupFiles(e){
+  const files = [...e.target.files];
+  e.target.value = '';
+  for(const f of files) stagedBackups.push(await inspectBackupFile(f));
+  renderStaging();
+}
+function renderStaging(){
+  const wrap = document.getElementById('appbackup-staging');
+  const apps = getAppList();
+  wrap.innerHTML = stagedBackups.map((s, i) => {
+    if(s.error) return `<div class="glass rounded-lg p-3 flex items-center justify-between gap-2 border border-rose-700/40"><p class="text-xs text-rose-300 truncate">${escapeHtml(s.fileName)} — ${escapeHtml(s.error)}</p><button onclick="removeStaged(${i})" class="text-slate-500 hover:text-rose-400 text-xs">Remove</button></div>`;
+    const opts = apps.map(a => `<option value="${escapeHtml(a)}" ${(!s.other && a === s.appName) ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('');
+    return `<div class="glass rounded-lg p-3 space-y-2">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="text-sm text-slate-100 truncate">${escapeHtml(s.fileName)}</p>
+          <p class="text-[11px] text-slate-500">${formatBytes(s.fileSize)} · ${escapeHtml(formatBackupDate(s.backupDate, s.dateSource))} (${dateSourceLabel(s.dateSource)})</p>
+        </div>
+        <button onclick="removeStaged(${i})" class="text-slate-500 hover:text-rose-400 text-xs">Remove</button>
+      </div>
+      <div class="flex gap-2">
+        <select onchange="setStagedApp(${i}, this.value)" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm">
+          <option value="">Choose app…</option>${opts}<option value="__other__" ${s.other ? 'selected' : ''}>Other (type a name)…</option>
+        </select>
+        ${s.other ? `<input type="text" value="${escapeHtml(s.appName)}" oninput="stagedBackups[${i}].appName=this.value" placeholder="App name" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm">` : ''}
+      </div>
+      ${!s.appName && !s.other ? '<p class="text-[11px] text-amber-300">Couldn\'t tell which app this is — pick one.</p>' : ''}
+    </div>`;
+  }).join('');
+}
+function setStagedApp(i, val){
+  const s = stagedBackups[i]; if(!s) return;
+  if(val === '__other__'){ s.other = true; s.appName = ''; } else { s.other = false; s.appName = val; }
+  renderStaging();
+}
+function removeStaged(i){ stagedBackups.splice(i, 1); renderStaging(); }
+async function saveStagedBackups(){
+  const valid = stagedBackups.filter(s => !s.error);
+  if(!valid.length){ showToast('Choose at least one valid JSON file'); return; }
+  const missing = valid.filter(s => !normKey(s.appName));
+  if(missing.length){ showToast(`Pick an app for ${missing.length} file${missing.length === 1 ? '' : 's'}`); return; }
+  const items = valid.map(s => ({ ...s, appName: s.appName.trim() }));
+  stagedBackups = [];
+  closeModal('appbackup-modal');
+  await processAppBackups(items);
+}
+
+/* ----- Per-app update (card button / "missing" chips) ----- */
+function pickBackupFor(key){
+  singleTargetApp = appNameByKey(key);
+  const input = document.getElementById('appbackup-single-input');
+  input.value = '';
+  input.click();
+}
+async function handleSingleBackupPick(e){
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f || !singleTargetApp) return;
+  const item = await inspectBackupFile(f);
+  if(item.error){ showToast(item.error); return; }
+  item.appName = singleTargetApp;
+  singleTargetApp = null;
+  await processAppBackups([item]);
+}
+
+/* ----- Store / compare / flag ----- */
+async function storeAppBackup(cand, flag){
+  await db.appBackups.put({
+    id: cand.key, appName: cand.appName, fileName: cand.fileName, fileSize: cand.fileSize,
+    fileBlob: cand.file, backupDate: cand.backupDate, dateSource: cand.dateSource,
+    addedAt: Date.now(), flag: flag || null
+  });
+}
+async function processAppBackups(items){
+  await refreshAppList();
+  conflictQueue = items.map(it => { const name = canonicalAppName(it.appName); return { ...it, appName: name, key: normKey(name) }; });
+  conflictStats = { added: 0, updated: 0, replaced: 0, kept: 0, identical: 0 };
+  await drainAppBackupQueue();
+}
+// Works through the queue: stores clean updates silently, stops at the first flagged one for a decision
+async function drainAppBackupQueue(){
+  while(conflictQueue.length){
+    const cand = conflictQueue[0];
+    const existing = await db.appBackups.get(cand.key);
+    if(!existing){ await storeAppBackup(cand, null); conflictStats.added++; conflictQueue.shift(); continue; }
+    const cmp = compareBackups(existing, cand);
+    if(cmp.identical){ conflictStats.identical++; conflictQueue.shift(); continue; }
+    if(!cmp.older && !cmp.smaller){ await storeAppBackup(cand, null); conflictStats.updated++; conflictQueue.shift(); continue; }
+    renderConflict(existing, cand, cmp);
+    openModal('appbackup-conflict-modal');
+    return;
+  }
+  closeModal('appbackup-conflict-modal');
+  const s = conflictStats;
+  if(s.added + s.updated + s.replaced > 0) markChanged();
+  await refreshAppList();
+  render();
+  showToast(summarizeStats(s));
+}
+function summarizeStats(s){
+  const p = [];
+  if(s.added) p.push(`${s.added} added`);
+  if(s.updated) p.push(`${s.updated} updated`);
+  if(s.replaced) p.push(`${s.replaced} replaced (flagged)`);
+  if(s.kept) p.push(`${s.kept} kept as stored`);
+  if(s.identical) p.push(`${s.identical} unchanged`);
+  return p.join(' · ') || 'Nothing to do';
+}
+function renderConflict(existing, cand, cmp){
+  const flags = [];
+  if(cmp.older) flags.push(`<b>Older</b> — the new file's backup date is ${formatDuration(-cmp.dateDiff)} before the stored one.`);
+  if(cmp.smaller){
+    const pct = existing.fileSize ? Math.round(-cmp.sizeDiff / existing.fileSize * 100) : 0;
+    flags.push(`<b>Smaller</b> — ${formatBytes(-cmp.sizeDiff)} less than the stored file (${pct < 1 ? 'under 1%' : pct + '%'}). Some data may be missing.`);
+  }
+  if(existing.dateSource !== cand.dateSource) flags.push(`The two dates come from different places (${dateSourceLabel(existing.dateSource)} vs ${dateSourceLabel(cand.dateSource)}), so the date comparison is approximate.`);
+  const box = (title, name, size, date, src, accent) => `
+    <div class="glass rounded-lg p-3 ${accent}">
+      <p class="text-[11px] text-slate-500 uppercase mb-1">${title}</p>
+      <p class="text-xs text-slate-200 truncate">${escapeHtml(name)}</p>
+      <p class="text-xs text-slate-400 mt-1">${formatBytes(size)}</p>
+      <p class="text-xs text-slate-400">${escapeHtml(formatBackupDate(date, src))}</p>
+      <p class="text-[10px] text-slate-600">${dateSourceLabel(src)}</p>
+    </div>`;
+  document.getElementById('appbackup-conflict-title').innerText = `Flagged: ${cand.appName}`;
+  document.getElementById('appbackup-conflict-body').innerHTML = `
+    <ul class="text-xs text-amber-200 space-y-1.5 mb-4 mt-2">${flags.map(f => `<li>⚠ ${f}</li>`).join('')}</ul>
+    <div class="grid grid-cols-2 gap-3">
+      ${box('Stored', existing.fileName, existing.fileSize, existing.backupDate, existing.dateSource, 'border border-teal-500/30')}
+      ${box('New file', cand.fileName, cand.fileSize, cand.backupDate, cand.dateSource, 'border border-amber-500/40')}
+    </div>
+    ${conflictQueue.length > 1 ? `<p class="text-[11px] text-slate-500 mt-3">${conflictQueue.length - 1} more file(s) in this batch still to check.</p>` : ''}`;
+}
+async function resolveConflict(replace){
+  const cand = conflictQueue.shift();
+  if(!cand) return;
+  if(replace){
+    const existing = await db.appBackups.get(cand.key);
+    let flag = null;
+    if(existing){
+      const cmp = compareBackups(existing, cand);
+      flag = { older: cmp.older, smaller: cmp.smaller, prevFileName: existing.fileName, prevSize: existing.fileSize, prevDate: existing.backupDate, prevDateSource: existing.dateSource, at: Date.now() };
+    }
+    await storeAppBackup(cand, flag);
+    conflictStats.replaced++;
+  } else {
+    conflictStats.kept++;
+  }
+  await drainAppBackupQueue();
+}
+
+/* ----- List view ----- */
+async function renderAppBackups(){
+  const view = document.getElementById('appbackups-view');
+  const search = document.getElementById('search-input').value.toLowerCase();
+  await refreshAppList();
+  const all = await db.appBackups.toArray();
+  const flagged = all.filter(a => a.flag).length;
+  const shown = all.filter(a => a.appName.toLowerCase().includes(search) || a.fileName.toLowerCase().includes(search)).sort((a,b) => a.appName.localeCompare(b.appName));
+
+  const header = all.length ? `
+    <div class="glass rounded-xl p-4 mb-4">
+      <p class="text-sm text-slate-200"><span class="font-semibold text-gold-400">${all.length}</span> app${all.length === 1 ? '' : 's'} stored${flagged ? ` · <span class="text-amber-300">${flagged} flagged</span>` : ''}</p>
+    </div>` : '';
+
+  const cards = shown.length ? shown.map(a => {
+    const f = a.flag;
+    const flagBadge = f ? `<span class="bg-amber-900/40 text-amber-300 px-2 py-0.5 rounded text-[11px] font-semibold flex-shrink-0">⚠ Flagged</span>` : '';
+    const flagDetail = f ? `<p class="text-[11px] text-amber-200/90 leading-snug">You replaced a backup with one that is ${[f.older ? 'older' : '', f.smaller ? 'smaller' : ''].filter(Boolean).join(' and ')}. Previous: ${escapeHtml(f.prevFileName || 'unknown')} · ${formatBytes(f.prevSize)} · ${escapeHtml(formatBackupDate(f.prevDate, f.prevDateSource))}.</p>` : '';
+    return `
+    <div class="glass rounded-xl p-4 flex flex-col gap-3 ${f ? 'border border-amber-500/30' : ''}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="font-semibold text-slate-100 truncate">💾 ${escapeHtml(a.appName)}</p>
+          <p class="text-[11px] text-slate-500 truncate">${escapeHtml(a.fileName)}</p>
+        </div>
+        ${flagBadge}
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div><p class="text-[11px] text-slate-500 uppercase">Backup date</p><p class="text-slate-200">${escapeHtml(formatBackupDate(a.backupDate, a.dateSource))}</p><p class="text-[10px] text-slate-600">${dateSourceLabel(a.dateSource)}</p></div>
+        <div><p class="text-[11px] text-slate-500 uppercase">Size</p><p class="text-slate-200">${formatBytes(a.fileSize)}</p></div>
+      </div>
+      ${flagDetail}
+      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
+        <span>Stored ${new Date(a.addedAt).toLocaleDateString()}</span>
+        <div class="flex gap-3">
+          <button onclick="downloadAppBackup('${a.id}')" class="text-teal-400 hover:underline font-medium">Download</button>
+          <button onclick="pickBackupFor('${a.id}')" class="text-slate-400 hover:text-gold-400 font-medium">Update</button>
+          <button onclick="deleteAppBackup('${a.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="col-span-full glass rounded-xl p-10 text-center text-slate-500 text-sm">${all.length ? 'No app backups match your search.' : 'No app backups stored yet. Click "+ Add App Backups" and choose your apps\' JSON backup files.'}</div>`;
+
+  view.innerHTML = header + `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${cards}</div>`;
+}
+async function downloadAppBackup(id){
+  const a = await db.appBackups.get(id);
+  if(!a) return;
+  downloadBlob(a.fileBlob, a.fileName);
+}
+function deleteAppBackup(id){
+  showConfirm('Delete App Backup', 'This permanently deletes the stored backup file for this app. This cannot be undone.', 'Delete', true, async () => {
+    await db.appBackups.delete(id);
+    markChanged();
+    render();
+    showToast('App backup deleted');
+  });
+}
+
+/* ================================================================
+   EXCEL PASSWORD IMPORT (+ downloadable template)
+   SheetJS is loaded on demand so it never slows down normal startup.
+   ================================================================ */
+const XLSX_URLS = [
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+];
+let xlsxLoading = null;
+function loadScriptOnce(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => { s.remove(); rej(new Error('load failed')); }; document.head.appendChild(s); }); }
+function loadXLSX(){
+  if(window.XLSX) return Promise.resolve();
+  if(!xlsxLoading){
+    xlsxLoading = (async () => {
+      for(const u of XLSX_URLS){ try{ await loadScriptOnce(u); if(window.XLSX) return; }catch(e){} }
+      xlsxLoading = null;
+      throw new Error('Could not load the Excel library — check your connection and try again.');
+    })();
+  }
+  return xlsxLoading;
+}
+
+const TEMPLATE_HEADERS = ['Domain','Type','Name','Category','Username / Email','Password','Login URL','Billing Cycle & Cost','Notes'];
+const TEMPLATE_SAMPLES = [
+  { domain:'Personal', type:'Login / Site',  name:'Sample Bank (delete this row)',    category:'Banking', username:'you@example.com',    password:'ChangeMe-123', url:'https://bank.example.com/login', billing:'',                 notes:'Example only' },
+  { domain:'Business', type:'Subscription',  name:'Sample Hosting (delete this row)', category:'Hosting', username:'admin@example.com',  password:'ChangeMe-456', url:'',                               billing:'Monthly - $49/mo', notes:'Example only' }
+];
+const IMPORT_COLS = [
+  { field:'domain',   aliases:['domain','space'] },
+  { field:'type',     aliases:['type','entrytype','credentialtype'] },
+  { field:'name',     aliases:['name','title','sitename','service','accountname','vendor','entry'] },
+  { field:'category', aliases:['category','group','grouping','folder','collection'] },
+  { field:'username', aliases:['username','usernameemail','user','userid','email','emailaddress','loginusername','login'] },
+  { field:'password', aliases:['password','pass','pwd','loginpassword'] },
+  { field:'url',      aliases:['url','loginurl','loginuri','website','link','address','uri'] },
+  { field:'billing',  aliases:['billingcyclecost','billingcycle','billing','cost','price','plan'] },
+  { field:'notes',    aliases:['notes','note','extra','comments','comment','description'] }
+];
+
+async function downloadPasswordTemplate(){
+  try{ await loadXLSX(); }catch(e){ showToast(e.message); return; }
+  const aoa = [TEMPLATE_HEADERS, ...TEMPLATE_SAMPLES.map(s => [s.domain, s.type, s.name, s.category, s.username, s.password, s.url, s.billing, s.notes])];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // Pre-format the entry area as Text so passwords like 007123 keep their leading zeros
+  const ROWS = 500;
+  for(let r = 0; r < ROWS; r++){
+    for(let c = 0; c < TEMPLATE_HEADERS.length; c++){
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if(ws[addr]){ ws[addr].t = 's'; if(r > 0) ws[addr].z = '@'; }
+      else ws[addr] = { t:'s', v:'', z:'@' };
+    }
+  }
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:ROWS-1, c:TEMPLATE_HEADERS.length-1} });
+  ws['!cols'] = [{wch:11},{wch:14},{wch:32},{wch:16},{wch:30},{wch:24},{wch:34},{wch:22},{wch:36}];
+
+  const info = [
+    ['Vault — Credential Import Template'],
+    [],
+    ['Fill in the "Credentials" sheet with one credential per row, then in Vault choose Import → "Import passwords from Excel".'],
+    ['Delete the two sample rows before importing (they are skipped automatically if left in).'],
+    ['Rows that already exist in Vault (same Domain + Name + Username) are skipped by default, so re-importing is safe.'],
+    [],
+    ['Column','Required','What to enter'],
+    ['Domain','No','Personal or Business. Blank = Personal.'],
+    ['Type','No','Login / Site   or   Subscription. Blank = Subscription if Billing Cycle & Cost is filled in, otherwise Login / Site.'],
+    ['Name','Yes','Site or service name, e.g. GitHub, Chase Business.'],
+    ['Category','No','e.g. Banking, Hosting, Insurance. Blank = General.'],
+    ['Username / Email','Yes','Login username or email address.'],
+    ['Password','Yes','Exactly as it should be entered. Cells are pre-set to Text, so leading zeros are kept.'],
+    ['Login URL','No','Full web address. https:// is added if missing. Only http/https addresses are accepted.'],
+    ['Billing Cycle & Cost','No','e.g. Monthly - $49/mo (shown on Subscription entries).'],
+    ['Notes','No','2FA backup info, security questions, etc.'],
+    [],
+    ['Security','','This file holds passwords in plain text. Delete it, and any cloud or recycle-bin copy, once the import is finished.']
+  ];
+  const wsInfo = XLSX.utils.aoa_to_sheet(info);
+  wsInfo['!cols'] = [{wch:22},{wch:10},{wch:110}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Credentials');
+  XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions');
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  downloadBlob(new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Vault_Import_Template.xlsx');
+  showToast('Template downloaded');
+}
+
+function mapHeaderRow(row){
+  const map = {};
+  (row || []).forEach((cell, idx) => {
+    const k = normKey(cell);
+    if(!k) return;
+    for(const col of IMPORT_COLS){
+      if(map[col.field] === undefined && col.aliases.includes(k)){ map[col.field] = idx; break; }
+    }
+  });
+  return map;
+}
+
+// Pure parsing/validation — no DOM, no DB. existingKeys = Set of "domain|name|username" already in Vault.
+function parseCredentialMatrix(matrix, existingKeys, rowOffset){
+  rowOffset = rowOffset || 0;
+  let headerIdx = -1, map = null;
+  for(let i = 0; i < Math.min(matrix.length, 15); i++){
+    const m = mapHeaderRow(matrix[i]);
+    if(m.name !== undefined && m.password !== undefined){ headerIdx = i; map = m; break; }
+  }
+  if(headerIdx < 0) return { error: 'Could not find a header row with at least "Name" and "Password" columns. Download the template to see the expected layout.' };
+
+  const rows = [];
+  const seen = new Map();
+  for(let i = headerIdx + 1; i < matrix.length; i++){
+    const r = matrix[i] || [];
+    const raw = f => map[f] === undefined ? '' : String(r[map[f]] == null ? '' : r[map[f]]);
+    const t = f => raw(f).trim();
+    if(IMPORT_COLS.every(c => t(c.field) === '')) continue;
+
+    const rowNum = i + 1 + rowOffset;
+    const errors = [];
+    const data = { domain:'personal', type:'vendor', name:t('name'), category:t('category') || 'General', username:t('username'), password:raw('password'), url:'', billing:t('billing'), notes:t('notes') };
+
+    const dom = t('domain').toLowerCase();
+    if(dom === '' || dom === 'personal') data.domain = 'personal';
+    else if(dom === 'business') data.domain = 'business';
+    else errors.push('Domain must be Personal or Business');
+
+    const typ = normKey(t('type'));
+    if(typ === '') data.type = data.billing ? 'subscription' : 'vendor';
+    else if(['loginsite','login','logins','site','vendor','website','password'].includes(typ)) data.type = 'vendor';
+    else if(['subscription','subscriptions','sub'].includes(typ)) data.type = 'subscription';
+    else errors.push('Type must be Login / Site or Subscription');
+
+    if(!data.name) errors.push('Name is required');
+    if(!data.username) errors.push('Username / Email is required');
+    if(data.password.trim() === '') errors.push('Password is required');
+
+    let url = t('url');
+    if(url){
+      const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(url) || /^(javascript|data|vbscript|file|mailto|tel):/i.test(url);
+      const candidate = hasScheme ? url : 'https://' + url;
+      if(safeHref(candidate)) data.url = candidate;
+      else errors.push('Login URL must be a web address (http or https)');
+    }
+
+    const isSample = TEMPLATE_SAMPLES.some(s => s.name === data.name && s.username === data.username && s.password === data.password);
+    let status = errors.length ? 'error' : (isSample ? 'sample' : 'ready');
+    let dup = '';
+    if(status === 'ready'){
+      const key = `${data.domain}|${data.name.toLowerCase()}|${data.username.toLowerCase()}`;
+      if(existingKeys.has(key)) dup = 'Already in Vault';
+      else if(seen.has(key)) dup = `Same as row ${seen.get(key)} in this file`;
+      else seen.set(key, rowNum);
+    }
+    rows.push({ rowNum, status, errors, data, dup });
+  }
+  return { rows, headerRow: headerIdx + 1 + rowOffset };
+}
+
+let xlsxPending = null;
+let xlsxSkipDups = true;
+
+async function handleXlsxImportFile(e){
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  closeModal('import-modal');
+  xlsxPending = { fileName: file.name, error: '', rows: [], sheetName: '' };
+  try{
+    await loadXLSX();
+    const isCsv = /\.csv$/i.test(file.name);
+    const wb = isCsv ? XLSX.read(await file.text(), { type:'string', raw:true }) : XLSX.read(await file.arrayBuffer(), { type:'array' });
+    const sheetName = wb.SheetNames.find(n => n.trim().toLowerCase() === 'credentials') || wb.SheetNames.find(n => n.trim().toLowerCase() !== 'instructions');
+    if(!sheetName) throw new Error('That file has no sheets to read.');
+    const ws = wb.Sheets[sheetName];
+    const matrix = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'', blankrows:true });
+    const offset = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s.r : 0;
+    const existing = await db.credentials.toArray();
+    const existingKeys = new Set(existing.map(c => `${c.domain}|${String(c.name).toLowerCase()}|${String(c.username).toLowerCase()}`));
+    const result = parseCredentialMatrix(matrix, existingKeys, offset);
+    xlsxPending.sheetName = sheetName;
+    if(result.error) xlsxPending.error = result.error; else xlsxPending.rows = result.rows;
+  } catch(err){
+    xlsxPending.error = err && err.message ? err.message : 'Could not read that file.';
+  }
+  xlsxSkipDups = true;
+  renderXlsxPreview();
+  openModal('xlsx-import-modal');
+}
+
+function importableXlsxRows(){
+  return xlsxPending ? xlsxPending.rows.filter(r => r.status === 'ready' && !(r.dup && xlsxSkipDups)) : [];
+}
+
+function renderXlsxPreview(){
+  const box = document.getElementById('xlsx-preview');
+  const btn = document.getElementById('xlsx-import-btn');
+  if(!xlsxPending){ box.innerHTML = ''; return; }
+  if(xlsxPending.error){
+    box.innerHTML = `<p class="text-xs text-slate-400 mb-2">${escapeHtml(xlsxPending.fileName)}</p><div class="glass rounded-lg p-4 border border-rose-700/40"><p class="text-sm text-rose-300">${escapeHtml(xlsxPending.error)}</p></div>
+      <button onclick="downloadPasswordTemplate()" class="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-teal-300 border border-teal-500/30 hover:bg-teal-600/30">Download Template (.xlsx)</button>`;
+    btn.disabled = true; btn.innerText = 'Import';
+    return;
+  }
+  const rows = xlsxPending.rows;
+  const nErr = rows.filter(r => r.status === 'error').length;
+  const nSample = rows.filter(r => r.status === 'sample').length;
+  const nDup = rows.filter(r => r.status === 'ready' && r.dup).length;
+  const nReady = rows.filter(r => r.status === 'ready' && !r.dup).length;
+  const willImport = importableXlsxRows().length;
+  const stat = (n, label, cls) => `<div class="glass rounded-lg py-2 text-center"><p class="text-lg font-semibold ${cls}">${n}</p><p class="text-[11px] text-slate-500">${label}</p></div>`;
+  const sorted = [...rows].sort((a, b) => (a.status === 'error' ? 0 : 1) - (b.status === 'error' ? 0 : 1) || a.rowNum - b.rowNum);
+  const LIMIT = 200;
+  const badge = r => {
+    if(r.status === 'error') return '<span class="text-rose-300">Error</span>';
+    if(r.status === 'sample') return '<span class="text-slate-500">Sample — skipped</span>';
+    if(r.dup) return xlsxSkipDups ? '<span class="text-amber-300">Duplicate — skipped</span>' : '<span class="text-amber-300">Duplicate — will import</span>';
+    return '<span class="text-teal-300">Ready</span>';
+  };
+  const issue = r => r.status === 'error' ? r.errors.join('; ') : (r.dup || '');
+  box.innerHTML = `
+    <p class="text-xs text-slate-400 mb-3">${escapeHtml(xlsxPending.fileName)} · sheet "${escapeHtml(xlsxPending.sheetName)}" · ${rows.length} row(s) read</p>
+    <div class="grid grid-cols-4 gap-2 mb-3">
+      ${stat(nReady, 'Ready', 'text-teal-300')}${stat(nDup, 'Duplicates', 'text-amber-300')}${stat(nErr, 'Errors', nErr ? 'text-rose-300' : 'text-slate-400')}${stat(nSample, 'Samples', 'text-slate-400')}
+    </div>
+    ${nDup ? `<label class="flex items-center gap-2 text-xs text-slate-300 mb-3"><input type="checkbox" ${xlsxSkipDups ? 'checked' : ''} onchange="xlsxSkipDups=this.checked;renderXlsxPreview()" class="w-4 h-4 accent-gold-500"> Skip rows already in Vault (same domain + name + username)</label>` : ''}
+    ${nErr ? '<p class="text-xs text-rose-300 mb-2">Rows with errors won\'t be imported. Fix them in the spreadsheet and choose the file again, or import the rest now.</p>' : ''}
+    <div class="max-h-64 overflow-y-auto glass rounded-lg p-2">
+      <table class="w-full text-xs text-left">
+        <thead class="text-slate-500"><tr><th class="py-1 pr-2 font-medium">Row</th><th class="pr-2 font-medium">Status</th><th class="pr-2 font-medium">Name</th><th class="pr-2 font-medium">Username</th><th class="font-medium">Details</th></tr></thead>
+        <tbody>${sorted.slice(0, LIMIT).map(r => `<tr class="border-t border-white/5 align-top"><td class="py-1 pr-2 text-slate-500">${r.rowNum}</td><td class="pr-2 whitespace-nowrap">${badge(r)}</td><td class="pr-2 text-slate-200 max-w-[140px] truncate">${escapeHtml(r.data.name || '—')}</td><td class="pr-2 text-slate-400 max-w-[140px] truncate">${escapeHtml(r.data.username || '—')}</td><td class="text-slate-400">${escapeHtml(issue(r))}</td></tr>`).join('')}</tbody>
+      </table>
+      ${sorted.length > LIMIT ? `<p class="text-[11px] text-slate-500 pt-2">Showing ${LIMIT} of ${sorted.length} rows (errors first).</p>` : ''}
+    </div>
+    <p class="text-[11px] text-slate-500 mt-2">Passwords are never shown in this preview.</p>`;
+  btn.disabled = willImport === 0;
+  btn.innerText = willImport ? `Import ${willImport} credential${willImport === 1 ? '' : 's'}` : 'Nothing to import';
+}
+
+function cancelXlsxImport(){ xlsxPending = null; closeModal('xlsx-import-modal'); }
+
+async function confirmXlsxImport(){
+  const rows = importableXlsxRows();
+  if(!rows.length) return;
+  const now = Date.now();
+  const recs = rows.map((r, i) => ({ id: uid() + i.toString(36), ...r.data, updatedAt: now }));
+  await db.credentials.bulkPut(recs);
+  markChanged();
+  xlsxPending = null;
+  closeModal('xlsx-import-modal');
+  render();
+  const p = recs.filter(r => r.domain === 'personal').length;
+  showToast(`Imported ${recs.length} credential${recs.length === 1 ? '' : 's'} (${p} Personal, ${recs.length - p} Business)`);
 }
 
 /* ---------- Clear all data ---------- */
@@ -940,11 +1634,21 @@ async function confirmClearAllData(){
   }
   await db.credentials.clear();
   await db.documents.clear();
+  await db.appBackups.clear();
   clearChangeCounter();
   closeModal('clear-data-modal');
   render();
   showToast('All data cleared');
 }
+
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Escape') return;
+  const order = ['confirm-modal','import-passphrase-modal','export-passphrase-modal','xlsx-import-modal','appbackup-modal','import-modal','share-modal','credential-modal','document-modal','clear-data-modal'];
+  for(const id of order){
+    const m = document.getElementById(id);
+    if(m && !m.classList.contains('hidden')){ if(id === 'xlsx-import-modal') cancelXlsxImport(); else closeModal(id); break; }
+  }
+});
 
 window.onload = initApp;
 
