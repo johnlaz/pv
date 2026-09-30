@@ -107,17 +107,33 @@
     </div>
     <div class="flex items-center gap-2">
       <button onclick="toggleSelectMode()" id="select-mode-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Select</button>
+      <button onclick="openDuplicateReview()" id="dup-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition" title="Scan the whole vault for entries that look like copies">Find Duplicates</button>
       <button onclick="openCredentialModal()" id="add-credential-btn" class="text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Credential</button>
       <button onclick="openDocumentModal()" id="add-document-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Document</button>
       <button onclick="openAppBackupModal()" id="add-appbackup-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add App Backups</button>
     </div>
   </div>
 
+  <!-- View / sort / filter bar -->
+  <div id="view-bar" class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div id="view-switcher" class="glass p-1 rounded-lg inline-flex"></div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <select id="cat-filter" onchange="setCatFilter(this.value)" aria-label="Filter by category" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-white/10 text-xs max-w-[180px]"></select>
+      <select id="sort-select" onchange="setSort(this.value)" aria-label="Sort" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-white/10 text-xs">
+        <option value="name">Name A–Z</option>
+        <option value="namez">Name Z–A</option>
+        <option value="category">Category</option>
+        <option value="recent">Recently changed</option>
+      </select>
+      <span id="result-count" class="text-xs text-slate-500"></span>
+    </div>
+  </div>
+
   <!-- Credentials list -->
-  <div id="credentials-view" class="space-y-3"></div>
+  <div id="credentials-view"></div>
 
   <!-- Documents grid -->
-  <div id="documents-view" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  <div id="documents-view" class="hidden"></div>
 
   <!-- App backups -->
   <div id="appbackups-view" class="hidden"></div>
@@ -309,6 +325,19 @@
   </div>
 </div>
 
+<!-- Duplicate Review Modal -->
+<div id="dup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
+    <div class="flex items-start justify-between gap-3 mb-1">
+      <h3 id="dup-title" class="font-serif font-bold text-lg text-gold-400">Possible Duplicates</h3>
+      <button onclick="closeModal('dup-modal')" aria-label="Close" class="text-slate-400 hover:text-slate-100 text-xl leading-none px-2">&times;</button>
+    </div>
+    <p id="dup-sub" class="text-xs text-slate-400 mb-4"></p>
+    <div id="dup-body" class="space-y-4"></div>
+    <div id="dup-footer" class="flex flex-wrap items-center justify-end gap-2 pt-4"></div>
+  </div>
+</div>
+
 <!-- Clear Data Modal -->
 <div id="clear-data-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
@@ -383,6 +412,18 @@ let selectMode = false;
 let selectedIds = new Set(); // format: "credential:<id>" / "document:<id>"
 let credentialsCache = new Map(); // id -> credential record, so secrets never travel through HTML attributes
 let pendingChanges = parseInt(localStorage.getItem('vault_pendingChanges') || '0', 10) || 0;
+// View / sort / filter (remembered between visits)
+let viewMode = { credentials: localStorage.getItem('vault_view_credentials') || 'detailed', documents: localStorage.getItem('vault_view_documents') || 'cards' };
+let sortMode = localStorage.getItem('vault_sort') || 'name';
+let catFilter = '';
+const collapsedGroups = new Set();
+// Duplicate review
+let dupIndex = null; // cached scan (promise)
+let dupDismissed = new Set(); // groups marked "not duplicates"
+try{ dupDismissed = new Set(JSON.parse(localStorage.getItem('vault_dupDismissed') || '[]')); }catch(e){}
+// Merge-restore hooks into the app-backup queue
+let toastPrefix = '';
+let afterQueueCb = null;
 
 /* ---------- Utils ---------- */
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -402,11 +443,13 @@ async function copyText(text){ try{ await navigator.clipboard.writeText(text); s
 
 /* ---------- Change tracking / backup reminder ---------- */
 function markChanged(){
+  invalidateDup();
   pendingChanges++;
   localStorage.setItem('vault_pendingChanges', String(pendingChanges));
   updateBackupIndicators();
 }
 function clearChangeCounter(){
+  invalidateDup();
   pendingChanges = 0;
   localStorage.setItem('vault_pendingChanges', '0');
   updateBackupIndicators();
@@ -506,6 +549,7 @@ async function initApp(){
 /* ---------- Domain / Tab ---------- */
 function setDomain(domain){
   activeDomain = domain;
+  catFilter = '';
   document.getElementById('domain-personal').className = domain==='personal'
     ? 'px-5 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 transition'
     : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition';
@@ -517,6 +561,7 @@ function setDomain(domain){
 
 function setTab(tab){
   activeTab = tab;
+  catFilter = '';
   const on  = 'py-2.5 px-5 font-semibold text-sm border-b-2 border-gold-500 text-gold-400 transition';
   const off = 'py-2.5 px-5 font-semibold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition';
   ['credentials','documents','appbackups'].forEach(t => {
@@ -528,6 +573,8 @@ function setTab(tab){
   document.getElementById('add-appbackup-btn').classList.toggle('hidden', tab!=='appbackups');
   // App backups are not Personal/Business scoped and aren't shareable, so hide those controls there
   document.getElementById('select-mode-btn').classList.toggle('hidden', tab==='appbackups');
+  document.getElementById('dup-btn').classList.toggle('hidden', tab==='appbackups');
+  document.getElementById('view-bar').classList.toggle('hidden', tab==='appbackups');
   document.getElementById('domain-switcher-wrap').classList.toggle('hidden', tab==='appbackups');
   document.querySelector('main').classList.toggle('pt-6', tab==='appbackups');
   document.getElementById('search-input').placeholder = tab==='appbackups' ? 'Search app or file name...' : 'Search name, category, username...';
@@ -550,108 +597,285 @@ function toggleSelected(key){
   render();
 }
 
+/* ---------- View modes / sort / filter ---------- */
+const VIEW_DEFS = {
+  credentials: [['detailed','Detailed'],['compact','Compact'],['cards','Cards'],['grouped','By Category']],
+  documents:   [['cards','Cards'],['list','List'],['grouped','By Category']]
+};
+let groupKeyList = [];
+let lastDupIdx = null;
+let renderToken = 0;
+
+function setView(mode){ viewMode[activeTab] = mode; try{ localStorage.setItem('vault_view_' + activeTab, mode); }catch(e){} render(); }
+function setSort(v){ sortMode = v; try{ localStorage.setItem('vault_sort', v); }catch(e){} render(); }
+function setCatFilter(v){ catFilter = v; render(); }
+function toggleGroup(i){
+  const k = groupKeyList[i]; if(k === undefined) return;
+  if(collapsedGroups.has(k)) collapsedGroups.delete(k); else collapsedGroups.add(k);
+  render();
+}
+function setAllGroups(collapse){ groupKeyList.forEach(k => { if(collapse) collapsedGroups.add(k); else collapsedGroups.delete(k); }); render(); }
+
+function catKey(x){ return (String(x.category || '').trim() || 'Uncategorized').toLowerCase(); }
+function catLabel(x){ return String(x.category || '').trim() || 'Uncategorized'; }
+function catMap(all){ const m = new Map(); all.forEach(x => { const k = catKey(x); if(!m.has(k)) m.set(k, catLabel(x)); }); return m; }
+function matchesSearch(x, search, fields){ return !search || fields.some(f => String(x[f] == null ? '' : x[f]).toLowerCase().includes(search)); }
+function sortItems(list){
+  const cmp = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, {sensitivity:'base'});
+  const ts = x => x.updatedAt || x.createdAt || 0;
+  if(sortMode === 'namez') list.sort((a, b) => cmp(b, a));
+  else if(sortMode === 'category') list.sort((a, b) => catLabel(a).localeCompare(catLabel(b), undefined, {sensitivity:'base'}) || cmp(a, b));
+  else if(sortMode === 'recent') list.sort((a, b) => ts(b) - ts(a) || cmp(a, b));
+  else list.sort(cmp);
+  return list;
+}
+
+function updateViewBar(all, shown, cats){
+  const defs = VIEW_DEFS[activeTab];
+  if(!defs) return;
+  if(!defs.some(d => d[0] === viewMode[activeTab])) viewMode[activeTab] = defs[0][0];
+  const mode = viewMode[activeTab];
+  document.getElementById('view-switcher').innerHTML = defs.map(([k, l]) =>
+    `<button onclick="setView('${k}')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition ${mode === k ? 'gold-grad text-navy-950' : 'text-slate-300 hover:text-white'}">${l}</button>`).join('');
+  const sorted = [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1], undefined, {sensitivity:'base'}));
+  document.getElementById('cat-filter').innerHTML = `<option value="">All categories (${sorted.length})</option>` +
+    sorted.map(([k, l]) => `<option value="${escapeHtml(k)}" ${catFilter === k ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('');
+  document.getElementById('sort-select').value = sortMode;
+  const noun = activeTab === 'credentials' ? 'credential' : 'document';
+  document.getElementById('result-count').innerText = shown === all.length
+    ? `${all.length} ${noun}${all.length === 1 ? '' : 's'}`
+    : `${shown} of ${all.length} ${noun}s`;
+}
+
 /* ---------- Render ---------- */
 async function render(){
+  const token = ++renderToken;
   const search = document.getElementById('search-input').value.toLowerCase();
   if(activeTab === 'credentials'){
     const all = await db.credentials.where('domain').equals(activeDomain).toArray();
-    const filtered = all.filter(c =>
-      c.name.toLowerCase().includes(search) ||
-      c.category.toLowerCase().includes(search) ||
-      c.username.toLowerCase().includes(search)
-    ).sort((a,b)=>a.name.localeCompare(b.name));
-    renderCredentials(filtered);
+    const idx = await getDupIndex();
+    if(token !== renderToken) return;
+    lastDupIdx = idx;
+    const cats = catMap(all);
+    if(catFilter && !cats.has(catFilter)) catFilter = '';
+    const filtered = sortItems(all.filter(c => matchesSearch(c, search, ['name','category','username']) && (!catFilter || catKey(c) === catFilter)));
+    updateViewBar(all, filtered.length, cats);
+    renderCredentials(filtered, all.length, search);
   } else if(activeTab === 'documents'){
     const all = await db.documents.where('domain').equals(activeDomain).toArray();
-    const filtered = all.filter(d =>
-      d.name.toLowerCase().includes(search) ||
-      d.category.toLowerCase().includes(search)
-    ).sort((a,b)=>a.name.localeCompare(b.name));
-    renderDocuments(filtered);
+    const idx = await getDupIndex();
+    if(token !== renderToken) return;
+    lastDupIdx = idx;
+    const cats = catMap(all);
+    if(catFilter && !cats.has(catFilter)) catFilter = '';
+    const filtered = sortItems(all.filter(d => matchesSearch(d, search, ['name','category','fileName']) && (!catFilter || catKey(d) === catFilter)));
+    updateViewBar(all, filtered.length, cats);
+    renderDocuments(filtered, all.length, search);
   } else {
     await renderAppBackups();
   }
 }
 
-function renderCredentials(items){
+/* ---------- Shared row pieces ---------- */
+function selBox(key, extra){
+  return selectMode ? `<input type="checkbox" onchange="toggleSelected('${key}')" ${selectedIds.has(key) ? 'checked' : ''} class="w-4 h-4 accent-gold-500 flex-shrink-0 ${extra || ''}">` : '';
+}
+function catChip(x){ return `<span class="bg-navy-700 text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium">${escapeHtml(catLabel(x))}</span>`; }
+function dupBadge(kind, id){
+  if(!lastDupIdx || !lastDupIdx.ids.has(`${kind}:${id}`)) return '';
+  return `<button onclick="openDuplicateReview(dupKeysFor('${kind}:${id}'))" class="bg-amber-900/40 text-amber-300 hover:bg-amber-900/60 px-2 py-0.5 rounded text-[11px] font-semibold flex-shrink-0" title="Review possible duplicates">⚠ Possible duplicate</button>`;
+}
+function credExtra(c, maxCls){
+  if(c.type === 'vendor'){
+    if(!c.url) return '<span class="text-slate-500 text-xs">No URL</span>';
+    const href = safeHref(c.url);
+    return href
+      ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-teal-400 hover:underline text-xs truncate block ${maxCls}">🔗 ${escapeHtml(c.url)}</a>`
+      : `<span class="text-slate-500 text-xs truncate block ${maxCls}" title="Not a web address, so it isn't linked">${escapeHtml(c.url)}</span>`;
+  }
+  return `<span class="bg-teal-900/40 text-teal-300 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(c.billing || 'N/A')}</span>`;
+}
+function credUserBlock(c){
+  return `<div class="flex items-center gap-1.5 min-w-0"><span class="font-mono text-xs text-slate-300 truncate">${escapeHtml(c.username)}</span><button onclick="copyCredentialField('${c.id}','username')" class="text-slate-500 hover:text-gold-400 text-xs flex-shrink-0" title="Copy">⧉</button></div>`;
+}
+function credPassBlock(c){
+  return `<div class="flex items-center gap-1.5 min-w-0"><span id="pass-${c.id}" class="select-none font-mono text-xs text-slate-500 truncate">••••••••••</span><button onclick="togglePassword('${c.id}')" class="text-teal-400 hover:underline text-[11px] flex-shrink-0">Reveal</button><button onclick="copyCredentialField('${c.id}','password')" class="text-slate-500 hover:text-gold-400 text-xs flex-shrink-0" title="Copy">⧉</button></div>`;
+}
+
+/* ---------- Credential views ---------- */
+function renderCredentials(items, total, search){
   const view = document.getElementById('credentials-view');
   if(items.length === 0){
-    view.innerHTML = `<div class="glass rounded-xl p-10 text-center text-slate-500 text-sm">No credentials yet in ${activeDomain}. Click "+ Add Credential" to get started.</div>`;
+    view.innerHTML = `<div class="glass rounded-xl p-10 text-center text-slate-500 text-sm">${total ? 'No credentials match your search or filter.' : `No credentials yet in ${activeDomain}. Click "+ Add Credential" to get started.`}</div>`;
     return;
   }
   credentialsCache.clear();
-  view.innerHTML = items.map(c => {
-    credentialsCache.set(c.id, c);
-    const key = `credential:${c.id}`;
-    const checked = selectedIds.has(key);
-    const extra = c.type === 'vendor'
-      ? (c.url ? (safeHref(c.url) ? `<a href="${escapeHtml(safeHref(c.url))}" target="_blank" rel="noopener" class="text-teal-400 hover:underline text-xs truncate block max-w-[220px]">🔗 ${escapeHtml(c.url)}</a>` : `<span class="text-slate-500 text-xs truncate block max-w-[220px]" title="Not a web address, so it isn't linked">${escapeHtml(c.url)}</span>`) : '<span class="text-slate-500 text-xs">No URL</span>')
-      : `<span class="bg-teal-900/40 text-teal-300 px-2.5 py-1 rounded-md text-xs font-semibold">${escapeHtml(c.billing || 'N/A')}</span>`;
-    return `
-    <div class="glass rounded-xl p-4 flex items-start gap-3">
-      ${selectMode ? `<input type="checkbox" onchange="toggleSelected('${key}')" ${checked?'checked':''} class="mt-1.5 w-4 h-4 accent-gold-500">` : ''}
-      <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-        <div class="sm:col-span-3">
-          <p class="font-semibold text-slate-100 truncate">${escapeHtml(c.name)}</p>
-          <span class="bg-navy-700 text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium">${escapeHtml(c.category)}</span>
-        </div>
-        <div class="sm:col-span-3">
-          <p class="text-[11px] text-slate-500 uppercase mb-0.5">Username</p>
-          <div class="flex items-center gap-1.5">
-            <span class="font-mono text-xs text-slate-300 truncate">${escapeHtml(c.username)}</span>
-            <button onclick="copyCredentialField('${c.id}','username')" class="text-slate-500 hover:text-gold-400 text-xs" title="Copy">⧉</button>
-          </div>
-        </div>
-        <div class="sm:col-span-3">
-          <p class="text-[11px] text-slate-500 uppercase mb-0.5">Password</p>
-          <div class="flex items-center gap-1.5">
-            <span id="pass-${c.id}" class="select-none font-mono text-xs text-slate-500">••••••••••</span>
-            <button onclick="togglePassword('${c.id}')" class="text-teal-400 hover:underline text-[11px]">Reveal</button>
-            <button onclick="copyCredentialField('${c.id}','password')" class="text-slate-500 hover:text-gold-400 text-xs" title="Copy">⧉</button>
-          </div>
-        </div>
-        <div class="sm:col-span-2">${extra}</div>
-        <div class="sm:col-span-1 flex justify-end gap-2">
-          <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 text-xs font-medium">Edit</button>
-          <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 text-xs font-medium">Del</button>
-        </div>
+  items.forEach(c => credentialsCache.set(c.id, c));
+  const mode = viewMode.credentials;
+  if(mode === 'grouped') view.innerHTML = groupedHtml(items, 'credentials', credRowCompact, search);
+  else if(mode === 'cards') view.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${items.map(credCard).join('')}</div>`;
+  else if(mode === 'compact') view.innerHTML = `<div class="space-y-1.5">${items.map(credRowCompact).join('')}</div>`;
+  else view.innerHTML = `<div class="space-y-3">${items.map(credRowDetailed).join('')}</div>`;
+}
+
+function credRowDetailed(c){
+  const key = `credential:${c.id}`;
+  return `
+  <div class="glass rounded-xl p-4 flex items-start gap-3">
+    ${selBox(key, 'mt-1.5')}
+    <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+      <div class="sm:col-span-3">
+        <p class="font-semibold text-slate-100 truncate">${escapeHtml(c.name)}</p>
+        <div class="flex flex-wrap items-center gap-1.5">${catChip(c)}${dupBadge('credential', c.id)}</div>
       </div>
-    </div>`;
+      <div class="sm:col-span-3">
+        <p class="text-[11px] text-slate-500 uppercase mb-0.5">Username</p>
+        ${credUserBlock(c)}
+      </div>
+      <div class="sm:col-span-3">
+        <p class="text-[11px] text-slate-500 uppercase mb-0.5">Password</p>
+        ${credPassBlock(c)}
+      </div>
+      <div class="sm:col-span-2">${credExtra(c, 'max-w-[220px]')}</div>
+      <div class="sm:col-span-1 flex justify-end gap-2">
+        <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 text-xs font-medium">Edit</button>
+        <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 text-xs font-medium">Del</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function credRowCompact(c){
+  const key = `credential:${c.id}`;
+  const href = c.type === 'vendor' ? safeHref(c.url) : '';
+  return `
+  <div class="glass rounded-lg px-3 py-2 flex items-center gap-3">
+    ${selBox(key)}
+    <div class="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-12 gap-x-3 gap-y-1 items-center">
+      <div class="col-span-2 sm:col-span-3 min-w-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <p class="font-semibold text-slate-100 text-sm truncate">${escapeHtml(c.name)}</p>${dupBadge('credential', c.id)}
+        </div>
+        ${c.type === 'subscription' && c.billing ? `<p class="text-[11px] text-teal-300 truncate">${escapeHtml(c.billing)}</p>` : ''}
+      </div>
+      <div class="sm:col-span-2 min-w-0">${catChip(c)}</div>
+      <div class="sm:col-span-3 min-w-0">${credUserBlock(c)}</div>
+      <div class="sm:col-span-2 min-w-0">${credPassBlock(c)}</div>
+      <div class="sm:col-span-2 flex justify-end items-center gap-3 text-xs">
+        ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="text-teal-400 hover:text-teal-300" title="${escapeHtml(c.url)}">🔗</a>` : ''}
+        <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 font-medium">Edit</button>
+        <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function credCard(c){
+  const key = `credential:${c.id}`;
+  return `
+  <div class="glass rounded-xl p-4 flex flex-col gap-3">
+    <div class="flex items-start gap-2">
+      ${selBox(key, 'mt-1')}
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-slate-100 truncate">${escapeHtml(c.name)}</p>
+        <div class="flex flex-wrap items-center gap-1.5 mt-1">${catChip(c)}${dupBadge('credential', c.id)}</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="min-w-0"><p class="text-[11px] text-slate-500 uppercase mb-0.5">Username</p>${credUserBlock(c)}</div>
+      <div class="min-w-0"><p class="text-[11px] text-slate-500 uppercase mb-0.5">Password</p>${credPassBlock(c)}</div>
+    </div>
+    <div class="min-w-0">${credExtra(c, 'max-w-full')}</div>
+    <div class="flex justify-end gap-3 mt-auto pt-2 border-t border-white/5 text-xs">
+      <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 font-medium">Edit</button>
+      <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Grouped (collapsible by category) ---------- */
+function groupedHtml(items, kind, rowFn, search){
+  const groups = new Map();
+  items.forEach(it => {
+    const k = catKey(it);
+    if(!groups.has(k)) groups.set(k, { label: catLabel(it), items: [] });
+    groups.get(k).items.push(it);
+  });
+  const sorted = [...groups.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label, undefined, {sensitivity:'base'}));
+  groupKeyList = sorted.map(([k]) => `${kind}:${activeDomain}:${k}`);
+  const forceOpen = !!search; // never hide search matches inside a collapsed group
+  const controls = `<div class="flex justify-end gap-4 mb-2 text-xs"><button onclick="setAllGroups(false)" class="text-slate-400 hover:text-gold-400">Expand all</button><button onclick="setAllGroups(true)" class="text-slate-400 hover:text-gold-400">Collapse all</button></div>`;
+  return controls + sorted.map(([k, g], i) => {
+    const open = forceOpen || !collapsedGroups.has(groupKeyList[i]);
+    return `
+    <section class="mb-3">
+      <button onclick="toggleGroup(${i})" class="w-full flex items-center justify-between gap-2 px-1 py-1.5 mb-1.5 text-left">
+        <span class="flex items-center gap-2"><span class="text-gold-400 text-xs w-3">${open ? '▾' : '▸'}</span><span class="font-serif font-semibold text-gold-400">${escapeHtml(g.label)}</span></span>
+        <span class="text-[11px] text-slate-500">${g.items.length}</span>
+      </button>
+      ${open ? `<div class="space-y-1.5">${g.items.map(rowFn).join('')}</div>` : ''}
+    </section>`;
   }).join('');
 }
 
-function renderDocuments(items){
+/* ---------- Document views ---------- */
+function renderDocuments(items, total, search){
   const view = document.getElementById('documents-view');
   if(items.length === 0){
-    view.innerHTML = `<div class="col-span-full glass rounded-xl p-10 text-center text-slate-500 text-sm">No documents yet in ${activeDomain}. Click "+ Add Document" to attach one.</div>`;
+    view.innerHTML = `<div class="glass rounded-xl p-10 text-center text-slate-500 text-sm">${total ? 'No documents match your search or filter.' : `No documents yet in ${activeDomain}. Click "+ Add Document" to attach one.`}</div>`;
     return;
   }
-  view.innerHTML = items.map(d => {
-    const key = `document:${d.id}`;
-    const checked = selectedIds.has(key);
-    const isImage = d.fileType && d.fileType.startsWith('image/');
-    return `
-    <div class="glass rounded-xl p-4 flex flex-col gap-3">
-      <div class="flex items-start justify-between gap-2">
-        <div class="flex items-center gap-2 min-w-0">
-          ${selectMode ? `<input type="checkbox" onchange="toggleSelected('${key}')" ${checked?'checked':''} class="w-4 h-4 accent-gold-500 flex-shrink-0">` : ''}
-          <span class="text-xl flex-shrink-0">${isImage ? '🖼️' : '📄'}</span>
-          <div class="min-w-0">
-            <p class="font-semibold text-slate-100 truncate">${escapeHtml(d.name)}</p>
-            <span class="bg-navy-700 text-slate-300 px-2 py-0.5 rounded text-[11px] font-medium">${escapeHtml(d.category)}</span>
-          </div>
+  const mode = viewMode.documents;
+  if(mode === 'grouped') view.innerHTML = groupedHtml(items, 'documents', docRowList, search);
+  else if(mode === 'list') view.innerHTML = `<div class="space-y-1.5">${items.map(docRowList).join('')}</div>`;
+  else view.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${items.map(docCard).join('')}</div>`;
+}
+
+function docCard(d){
+  const key = `document:${d.id}`;
+  const isImage = d.fileType && d.fileType.startsWith('image/');
+  return `
+  <div class="glass rounded-xl p-4 flex flex-col gap-3">
+    <div class="flex items-start justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        ${selBox(key)}
+        <span class="text-xl flex-shrink-0">${isImage ? '🖼️' : '📄'}</span>
+        <div class="min-w-0">
+          <p class="font-semibold text-slate-100 truncate">${escapeHtml(d.name)}</p>
+          <div class="flex flex-wrap items-center gap-1.5">${catChip(d)}${dupBadge('document', d.id)}</div>
         </div>
       </div>
-      ${d.notes ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(d.notes)}</p>` : ''}
-      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
-        <span>${escapeHtml(d.fileName)} · ${formatBytes(d.fileSize)}</span>
-        <div class="flex gap-2">
-          <button onclick="viewDocument('${d.id}')" class="text-teal-400 hover:underline font-medium">View</button>
-          <button onclick="deleteDocument('${d.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
-        </div>
+    </div>
+    ${d.notes ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(d.notes)}</p>` : ''}
+    <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
+      <span>${escapeHtml(d.fileName)} · ${formatBytes(d.fileSize)}</span>
+      <div class="flex gap-2">
+        <button onclick="viewDocument('${d.id}')" class="text-teal-400 hover:underline font-medium">View</button>
+        <button onclick="deleteDocument('${d.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>
+  </div>`;
+}
+
+function docRowList(d){
+  const key = `document:${d.id}`;
+  const isImage = d.fileType && d.fileType.startsWith('image/');
+  return `
+  <div class="glass rounded-lg px-3 py-2 flex items-center gap-3">
+    ${selBox(key)}
+    <span class="text-lg flex-shrink-0">${isImage ? '🖼️' : '📄'}</span>
+    <div class="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-12 gap-x-3 gap-y-1 items-center">
+      <div class="col-span-2 sm:col-span-4 min-w-0 flex items-center gap-2">
+        <p class="font-semibold text-slate-100 text-sm truncate">${escapeHtml(d.name)}</p>${dupBadge('document', d.id)}
+      </div>
+      <div class="sm:col-span-2 min-w-0">${catChip(d)}</div>
+      <div class="sm:col-span-4 min-w-0"><p class="text-[11px] text-slate-500 truncate">${escapeHtml(d.fileName)} · ${formatBytes(d.fileSize)}</p></div>
+      <div class="sm:col-span-2 flex justify-end gap-3 text-xs">
+        <button onclick="viewDocument('${d.id}')" class="text-teal-400 hover:underline font-medium">View</button>
+        <button onclick="deleteDocument('${d.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function togglePassword(id){
@@ -948,16 +1172,24 @@ async function decryptPendingImport(){
   }
 }
 
-function processImportData(data){
+async function processImportData(data){
   pendingImport = data;
   const preview = document.getElementById('import-preview');
+  const unrecognized = `<p class="text-sm text-rose-400 mt-2">Unrecognized file format.</p>`;
+  if(!data || typeof data !== 'object'){ preview.innerHTML = unrecognized; return; }
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
   if(data.packageType === 'vault-share'){
     const credCount = (data.credentials||[]).length;
     const docCount = (data.documents||[]).length;
+    let dupN = 0;
+    try{ dupN = await countShareDuplicates(data); }catch(e){}
+    if(pendingImport !== data) return; // a newer file was loaded while we were checking
     preview.innerHTML = `
       <div class="glass rounded-lg p-4 mt-2">
         <p class="text-sm text-slate-200 mb-1">Share package</p>
-        <p class="text-xs text-slate-400 mb-3">${credCount} credential(s), ${docCount} document(s). These will be added as new entries — nothing existing will be overwritten.</p>
+        <p class="text-xs text-slate-400 mb-2">${credCount} credential(s), ${docCount} document(s). These will be added as new entries — nothing existing will be overwritten.</p>
+        ${dupN ? `<p class="text-xs text-amber-300 mb-3">⚠ ${plural(dupN, 'item')} look like entries you already have. They'll be imported, then flagged so you can review and delete the old ones.</p>` : ''}
         <div class="max-h-40 overflow-y-auto text-xs text-slate-400 space-y-1 mb-3">
           ${(data.credentials||[]).map(c=>`<div>🔑 ${escapeHtml(c.name)} <span class="text-slate-600">(${escapeHtml(c.domain)})</span></div>`).join('')}
           ${(data.documents||[]).map(d=>`<div>📄 ${escapeHtml(d.name)}</div>`).join('')}
@@ -965,30 +1197,50 @@ function processImportData(data){
         <button onclick="confirmImportShare()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950">Import These Items</button>
       </div>`;
   } else if(data.packageType === 'vault-backup'){
+    let plan = null;
+    try{ plan = await planBackupMerge(data); }catch(e){}
+    if(pendingImport !== data) return;
+    const aN = (data.appBackups||[]).length;
+    const dupLine = n => n ? ` · <span class="text-amber-300">${n} possible duplicate${n === 1 ? '' : 's'}</span>` : '';
+    const summary = plan ? `
+        <ul class="text-xs text-slate-300 space-y-1 mb-3">
+          <li><span class="text-slate-100 font-semibold">Credentials:</span> ${plan.credAdd.length - plan.credDup} new · ${plan.credUpdate.length} updated (newer in backup) · ${plan.credSame} already here${dupLine(plan.credDup)}</li>
+          <li><span class="text-slate-100 font-semibold">Documents:</span> ${plan.docAdd.length - plan.docDup} new · ${plan.docSame} already here${dupLine(plan.docDup)}</li>
+          <li><span class="text-slate-100 font-semibold">App backups:</span> ${aN} in file — newer or larger ones replace stored ones; older or smaller ones ask you first</li>
+        </ul>` : `<p class="text-xs text-slate-400 mb-3">${plural((data.credentials||[]).length, 'credential')}, ${plural((data.documents||[]).length, 'document')}, ${plural(aN, 'app backup')}.</p>`;
     preview.innerHTML = `
       <div class="glass rounded-lg p-4 mt-2">
-        <p class="text-sm text-slate-200 mb-1">Full backup file</p>
-        <p class="text-xs text-slate-400 mb-3">${(data.credentials||[]).length} credential(s), ${(data.documents||[]).length} document(s), ${(data.appBackups||[]).length} app backup(s). Restoring a backup replaces ALL current data on this device.</p>
-        <button onclick="confirmRestoreBackup()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Replace All Data With This Backup</button>
+        <p class="text-sm text-slate-200 mb-2">Full backup file — how should it be restored?</p>
+        ${summary}
+        <button onclick="confirmMergeBackup()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Merge Into Current Data</button>
+        <p class="text-[11px] text-slate-500 mt-1 mb-3">Keeps everything on this device and adds what's missing. Nothing is deleted, and anything that looks like a copy is flagged for you to review.</p>
+        <button onclick="confirmRestoreBackup()" class="w-full px-4 py-2 rounded-lg text-sm font-semibold bg-rose-900/40 text-rose-300 border border-rose-700/40 hover:bg-rose-900/60">Replace All Data With This Backup</button>
+        <p class="text-[11px] text-slate-500 mt-1">Erases everything currently on this device first, then loads the backup.</p>
       </div>`;
   } else {
-    preview.innerHTML = `<p class="text-sm text-rose-400 mt-2">Unrecognized file format.</p>`;
+    preview.innerHTML = unrecognized;
   }
 }
 
 async function confirmImportShare(){
   if(!pendingImport) return;
+  const newKeys = [];
   for(const c of (pendingImport.credentials||[])){
-    await db.credentials.put({ id: uid(), domain: c.domain==='business'?'business':'personal', type: c.type||'vendor', name: c.name||'Untitled', category: c.category||'', username: c.username||'', password: c.password||'', url: c.url||'', billing: c.billing||'', notes: c.notes||'', updatedAt: Date.now() });
+    const id = uid();
+    await db.credentials.put({ id, domain: c.domain==='business'?'business':'personal', type: c.type||'vendor', name: c.name||'Untitled', category: c.category||'', username: c.username||'', password: c.password||'', url: c.url||'', billing: c.billing||'', notes: c.notes||'', updatedAt: Date.now() });
+    newKeys.push('credential:' + id);
   }
   for(const d of (pendingImport.documents||[])){
     if(!d.fileData) continue;
-    await db.documents.put({ id: uid(), domain: d.domain==='business'?'business':'personal', name: d.name||'Untitled', category: d.category||'', notes: d.notes||'', fileBlob: base64ToBlob(d.fileData), fileName: d.fileName||'file', fileType: d.fileType||'', fileSize: d.fileSize||0, createdAt: Date.now() });
+    const id = uid();
+    await db.documents.put({ id, domain: d.domain==='business'?'business':'personal', name: d.name||'Untitled', category: d.category||'', notes: d.notes||'', fileBlob: base64ToBlob(d.fileData), fileName: d.fileName||'file', fileType: d.fileType||'', fileSize: d.fileSize||0, createdAt: Date.now() });
+    newKeys.push('document:' + id);
   }
   markChanged();
   closeModal('import-modal');
-  render();
+  await render();
   showToast('Items imported');
+  promptDupReview(newKeys);
 }
 
 function confirmRestoreBackup(){
@@ -997,12 +1249,12 @@ function confirmRestoreBackup(){
     await db.credentials.clear();
     await db.documents.clear();
     for(const c of (pendingImport.credentials||[])){
-      await db.credentials.put({ ...c, id: c.id || uid() });
+      await db.credentials.put({ ...c, id: cleanId(c.id) || uid() });
     }
     for(const d of (pendingImport.documents||[])){
       const blob = d.fileData ? base64ToBlob(d.fileData) : null;
       if(!blob) continue;
-      await db.documents.put({ id: d.id || uid(), domain: d.domain, name: d.name, category: d.category, notes: d.notes, fileBlob: blob, fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt || Date.now() });
+      await db.documents.put({ id: cleanId(d.id) || uid(), domain: d.domain, name: d.name, category: d.category, notes: d.notes, fileBlob: blob, fileName: d.fileName, fileType: d.fileType, fileSize: d.fileSize, createdAt: d.createdAt || Date.now() });
     }
     // Backups made before app-backup storage existed have no appBackups key — leave stored app backups alone in that case
     if(Array.isArray(pendingImport.appBackups)){
@@ -1256,7 +1508,9 @@ async function drainAppBackupQueue(){
   if(s.added + s.updated + s.replaced > 0) markChanged();
   await refreshAppList();
   render();
-  showToast(summarizeStats(s));
+  showToast((toastPrefix ? toastPrefix + ' · ' : '') + summarizeStats(s));
+  toastPrefix = '';
+  if(afterQueueCb){ const cb = afterQueueCb; afterQueueCb = null; cb(); }
 }
 function summarizeStats(s){
   const p = [];
@@ -1617,9 +1871,346 @@ async function confirmXlsxImport(){
   markChanged();
   xlsxPending = null;
   closeModal('xlsx-import-modal');
-  render();
+  await render();
   const p = recs.filter(r => r.domain === 'personal').length;
   showToast(`Imported ${recs.length} credential${recs.length === 1 ? '' : 's'} (${p} Personal, ${recs.length - p} Business)`);
+  promptDupReview(recs.map(r => 'credential:' + r.id));
+}
+
+/* ================================================================
+   DUPLICATE DETECTION + REVIEW
+   Flags entries that look like copies of each other. Nothing is ever
+   deleted automatically — you review each group and decide.
+   ================================================================ */
+function urlHost(u){
+  try{
+    const x = new URL(String(u || ''));
+    if(x.protocol !== 'http:' && x.protocol !== 'https:') return '';
+    return x.hostname.replace(/^www\./, '').toLowerCase();
+  }catch(e){ return ''; }
+}
+function credDupKeys(c){
+  const dom = c.domain === 'business' ? 'business' : 'personal';
+  const n = normKey(c.name), u = normKey(c.username), h = urlHost(c.url);
+  const keys = [];
+  if(n) keys.push(`n|${dom}|${n}|${u}`);
+  if(h && u) keys.push(`h|${dom}|${h}|${u}`);
+  return keys;
+}
+function docDupKeys(d){
+  const dom = d.domain === 'business' ? 'business' : 'personal';
+  const keys = [];
+  const f = normKey(d.fileName);
+  if(f && d.fileSize) keys.push(`f|${dom}|${f}|${d.fileSize}`);
+  const n = normKey(d.name);
+  if(n) keys.push(`n|${dom}|${n}|${normKey(d.category)}`);
+  return keys;
+}
+const DUP_REASONS = {
+  credential: { n: 'Same name & username', h: 'Same website & username' },
+  document:   { f: 'Same file name & size', n: 'Same name & category' }
+};
+
+// Groups records that share any duplicate key (union-find, so 3 copies land in one group)
+function clusterRecords(items, kind){
+  const keyFn = kind === 'credential' ? credDupKeys : docDupKeys;
+  const parent = new Map(items.map(i => [i.id, i.id]));
+  const find = x => { while(parent.get(x) !== x){ parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const buckets = new Map();
+  items.forEach(it => keyFn(it).forEach(k => { if(!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(it.id); }));
+  buckets.forEach(ids => { for(let i = 1; i < ids.length; i++){ const a = find(ids[0]), b = find(ids[i]); if(a !== b) parent.set(b, a); } });
+  const groups = new Map();
+  buckets.forEach((ids, k) => {
+    if(ids.length < 2) return;
+    const root = find(ids[0]);
+    if(!groups.has(root)) groups.set(root, { ids: new Set(), reasons: new Set() });
+    const g = groups.get(root);
+    ids.forEach(id => g.ids.add(id));
+    g.reasons.add(DUP_REASONS[kind][k.split('|')[0]]);
+  });
+  const byId = new Map(items.map(i => [i.id, i]));
+  const out = [];
+  groups.forEach(g => {
+    const sig = kind + ':' + [...g.ids].sort().join('|');
+    if(dupDismissed.has(sig)) return;
+    out.push({ kind, sig, items: [...g.ids].map(id => byId.get(id)), reasons: [...g.reasons] });
+  });
+  return out;
+}
+async function computeDupIndex(){
+  const creds = await db.credentials.toArray();
+  const docs = await db.documents.toArray();
+  const clusters = [...clusterRecords(creds, 'credential'), ...clusterRecords(docs, 'document')];
+  const ids = new Map();
+  clusters.forEach(c => c.items.forEach(i => ids.set(`${c.kind}:${i.id}`, c.sig)));
+  return { clusters, ids };
+}
+function getDupIndex(){
+  if(!dupIndex) dupIndex = computeDupIndex().catch(e => { dupIndex = null; return { clusters: [], ids: new Map() }; });
+  return dupIndex;
+}
+function invalidateDup(){ dupIndex = null; }
+function persistDismissed(){ try{ localStorage.setItem('vault_dupDismissed', JSON.stringify([...dupDismissed])); }catch(e){} }
+function dupKeysFor(key){
+  if(!lastDupIdx) return null;
+  const sig = lastDupIdx.ids.get(key);
+  const c = lastDupIdx.clusters.find(x => x.sig === sig);
+  return c ? c.items.map(i => `${c.kind}:${i.id}`) : null;
+}
+
+/* ----- Review dialog ----- */
+let dupState = { shown: [], filterKeys: null };
+const dupTs = r => r.updatedAt || r.createdAt || 0;
+function dupDate(r){ const t = dupTs(r); return t ? new Date(t).toLocaleString([], {dateStyle:'medium', timeStyle:'short'}) : 'No date recorded'; }
+
+async function openDuplicateReview(filterKeys){
+  dupState.filterKeys = Array.isArray(filterKeys) ? filterKeys : null;
+  invalidateDup();
+  await renderDupModal();
+  if(!dupState.shown.length){
+    const [nc, nd] = await Promise.all([db.credentials.count(), db.documents.count()]);
+    showToast(`Checked ${nc} credential${nc === 1 ? '' : 's'} and ${nd} document${nd === 1 ? '' : 's'} — no duplicates found`);
+    return;
+  }
+  openModal('dup-modal');
+}
+// Called after any import: opens the review only if something that just came in looks like a copy
+async function promptDupReview(newKeys){
+  if(!newKeys || !newKeys.length) return;
+  invalidateDup();
+  const idx = await getDupIndex();
+  const f = new Set(newKeys);
+  if(!idx.clusters.some(c => c.items.some(i => f.has(`${c.kind}:${i.id}`)))) return;
+  dupState.filterKeys = newKeys;
+  await renderDupModal();
+  openModal('dup-modal');
+}
+function showAllDups(){ dupState.filterKeys = null; renderDupModal(); }
+async function refreshDupModal(){
+  await renderDupModal();
+  if(!dupState.shown.length){ closeModal('dup-modal'); showToast('No more possible duplicates'); }
+}
+
+function dupClusterHtml(c, ci){
+  const items = [...c.items].sort((a, b) => dupTs(b) - dupTs(a));
+  c.sorted = items;
+  c.tied = items.length > 1 && dupTs(items[0]) === dupTs(items[1]);
+  const isCred = c.kind === 'credential';
+  const rows = items.map((r, i) => {
+    const newest = i === 0 && !c.tied;
+    const tag = c.tied ? '' : (newest ? '<span class="ml-1 text-[10px] uppercase font-semibold text-teal-300">Newest</span>' : '<span class="ml-1 text-[10px] uppercase font-semibold text-slate-500">Older</span>');
+    let pw = '';
+    if(isCred && i > 0) pw = String(r.password) === String(items[0].password) ? '<span class="text-teal-300">same password as top entry</span>' : '<span class="text-amber-300">different password than top entry</span>';
+    const detail = isCred ? `${escapeHtml(r.category || '')} · ${escapeHtml(r.username || '')}` : `${escapeHtml(r.fileName || '')} · ${formatBytes(r.fileSize)}`;
+    const peek = isCred
+      ? `<button onclick="dupReveal(${ci},${i})" class="text-teal-400 hover:underline">Show password</button> <span id="dupp-${ci}-${i}" class="font-mono text-slate-200 break-all"></span>`
+      : `<button onclick="dupViewDoc(${ci},${i})" class="text-teal-400 hover:underline">View file</button>`;
+    return `
+    <div class="rounded-lg p-3 flex items-start justify-between gap-3 bg-navy-800/60 border ${newest ? 'border-teal-500/40' : 'border-white/10'}">
+      <div class="min-w-0 space-y-0.5">
+        <p class="text-sm text-slate-100 truncate">${isCred ? '🔑' : '📄'} ${escapeHtml(r.name)}${tag}</p>
+        <p class="text-xs text-slate-400 truncate">${detail}</p>
+        <p class="text-[11px] text-slate-500">${escapeHtml(dupDate(r))}${pw ? ' · ' + pw : ''}</p>
+        <p class="text-[11px]">${peek}</p>
+      </div>
+      <button onclick="dupDelete(${ci},${i})" class="text-xs text-rose-300 hover:text-rose-200 border border-rose-700/40 rounded-md px-2 py-1 flex-shrink-0">Delete</button>
+    </div>`;
+  }).join('');
+  const dom = items[0].domain === 'business' ? 'Business' : 'Personal';
+  return `
+  <div class="glass rounded-xl p-4">
+    <p class="text-xs text-amber-300 mb-2">⚠ ${escapeHtml(c.reasons.join(' · '))} · ${items.length} entries · ${dom}</p>
+    <div class="space-y-2">${rows}</div>
+    <div class="flex flex-wrap items-center justify-end gap-2 mt-3">
+      ${c.tied ? '<p class="text-[11px] text-amber-200 mr-auto">These share the same date, so choose which to delete yourself.</p>' : `<button onclick="dupKeepNewest(${ci})" class="px-3 py-1.5 rounded-lg text-xs font-semibold gold-grad text-navy-950 hover:brightness-110">Keep newest, delete older</button>`}
+      <button onclick="dupDismiss(${ci})" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 hover:bg-white/5">Not duplicates — keep all</button>
+    </div>
+  </div>`;
+}
+
+async function renderDupModal(){
+  const idx = await getDupIndex();
+  let clusters = idx.clusters;
+  if(dupState.filterKeys){
+    const f = new Set(dupState.filterKeys);
+    clusters = clusters.filter(c => c.items.some(i => f.has(`${c.kind}:${i.id}`)));
+  }
+  dupState.shown = clusters;
+  const n = clusters.length;
+  document.getElementById('dup-title').innerText = dupState.filterKeys ? 'Review Possible Duplicates' : 'Possible Duplicates';
+  document.getElementById('dup-sub').innerHTML = `${n} group${n === 1 ? '' : 's'} of entries that look like copies. Nothing is deleted unless you choose it.` +
+    (dupState.filterKeys && idx.clusters.length > n ? ` <button onclick="showAllDups()" class="text-teal-400 hover:underline">Show all ${idx.clusters.length} groups in the vault</button>` : '');
+  document.getElementById('dup-body').innerHTML = clusters.map(dupClusterHtml).join('');
+  const auto = clusters.filter(c => !c.tied).length;
+  document.getElementById('dup-footer').innerHTML =
+    (auto > 1 ? `<button onclick="dupKeepNewestAll()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-navy-700 hover:bg-navy-600 border border-white/10 mr-auto">Keep newest in all ${auto} groups…</button>` : '<span class="mr-auto"></span>') +
+    `<button onclick="closeModal('dup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>`;
+}
+
+function dupReveal(ci, i){
+  const c = dupState.shown[ci], r = c && c.sorted && c.sorted[i];
+  const span = document.getElementById(`dupp-${ci}-${i}`);
+  if(!r || !span) return;
+  span.innerText = span.innerText ? '' : (r.password || '(empty)');
+}
+function dupViewDoc(ci, i){
+  const c = dupState.shown[ci], r = c && c.sorted && c.sorted[i];
+  if(r && r.fileBlob) window.open(URL.createObjectURL(r.fileBlob), '_blank');
+}
+async function deleteRecord(kind, id){
+  if(kind === 'credential') await db.credentials.delete(id); else await db.documents.delete(id);
+  selectedIds.delete(`${kind}:${id}`);
+}
+async function afterDupChange(){
+  markChanged();
+  await render();
+  await refreshDupModal();
+}
+function dupDelete(ci, i){
+  const c = dupState.shown[ci], r = c && c.sorted && c.sorted[i];
+  if(!r) return;
+  showConfirm('Delete this entry', `Permanently delete "${r.name}"? This cannot be undone.`, 'Delete', true, async () => {
+    await deleteRecord(c.kind, r.id);
+    await afterDupChange();
+  });
+}
+function dupKeepNewest(ci){
+  const c = dupState.shown[ci];
+  if(!c || c.tied) return;
+  const older = c.sorted.slice(1);
+  const diff = c.kind === 'credential' ? older.filter(r => String(r.password) !== String(c.sorted[0].password)).length : 0;
+  showConfirm('Delete older entries',
+    `Keep "${c.sorted[0].name}" (newest) and permanently delete ${older.length} older ${older.length === 1 ? 'entry' : 'entries'}?${diff ? ` ${diff} of them ${diff === 1 ? 'has' : 'have'} a different password — check first if you're unsure.` : ''} This cannot be undone.`,
+    'Delete Older', true, async () => {
+      for(const r of older) await deleteRecord(c.kind, r.id);
+      await afterDupChange();
+    });
+}
+function dupKeepNewestAll(){
+  const targets = dupState.shown.filter(c => !c.tied);
+  const older = targets.flatMap(c => c.sorted.slice(1).map(r => ({ kind: c.kind, r, top: c.sorted[0] })));
+  if(!older.length){ showToast('Nothing to clean up automatically'); return; }
+  const diff = older.filter(o => o.kind === 'credential' && String(o.r.password) !== String(o.top.password)).length;
+  showConfirm('Delete all older copies',
+    `This keeps the newest entry in ${targets.length} groups and permanently deletes ${older.length} older ${older.length === 1 ? 'entry' : 'entries'}.${diff ? ` ${diff} of them ${diff === 1 ? 'has' : 'have'} a different password than the one being kept — review those individually if unsure.` : ''} This cannot be undone.`,
+    'Delete Older', true, async () => {
+      for(const o of older) await deleteRecord(o.kind, o.r.id);
+      await afterDupChange();
+    });
+}
+function dupDismiss(ci){
+  const c = dupState.shown[ci];
+  if(!c) return;
+  dupDismissed.add(c.sig);
+  persistDismissed();
+  invalidateDup();
+  render();
+  refreshDupModal();
+  showToast('Marked as not duplicates');
+}
+
+/* ================================================================
+   MERGE A BACKUP INTO WHAT'S ALREADY ON THIS DEVICE
+   Adds what's missing, never deletes. Same entry in both -> the newer
+   one wins. Entries that look like copies are added and then flagged.
+   ================================================================ */
+function cleanId(id){ return String(id == null ? '' : id).replace(/[^A-Za-z0-9_-]/g, ''); }
+function normCred(c){
+  return {
+    id: cleanId(c.id) || uid(),
+    domain: c.domain === 'business' ? 'business' : 'personal',
+    type: c.type === 'subscription' ? 'subscription' : 'vendor',
+    name: String(c.name || 'Untitled'), category: String(c.category || 'General'),
+    username: String(c.username || ''), password: String(c.password == null ? '' : c.password),
+    url: String(c.url || ''), billing: String(c.billing || ''), notes: String(c.notes || ''),
+    updatedAt: Number(c.updatedAt) || 0
+  };
+}
+function normDoc(d){
+  return {
+    id: cleanId(d.id) || uid(),
+    domain: d.domain === 'business' ? 'business' : 'personal',
+    name: String(d.name || 'Untitled'), category: String(d.category || ''), notes: String(d.notes || ''),
+    fileName: String(d.fileName || 'file'), fileType: String(d.fileType || ''), fileSize: Number(d.fileSize) || 0,
+    createdAt: Number(d.createdAt) || Date.now(), fileData: d.fileData
+  };
+}
+async function planBackupMerge(data){
+  const [exC, exD] = await Promise.all([db.credentials.toArray(), db.documents.toArray()]);
+  const exCById = new Map(exC.map(c => [c.id, c]));
+  const exDIds = new Set(exD.map(d => d.id));
+  const kC = new Set(); exC.forEach(c => credDupKeys(c).forEach(k => kC.add(k)));
+  const kD = new Set(); exD.forEach(d => docDupKeys(d).forEach(k => kD.add(k)));
+  const plan = { credAdd: [], credUpdate: [], credSame: 0, credDup: 0, docAdd: [], docSame: 0, docDup: 0 };
+  for(const raw of (data.credentials || [])){
+    if(!raw || typeof raw !== 'object') continue;
+    const inc = normCred(raw);
+    const ex = exCById.get(inc.id);
+    if(ex){
+      if(inc.updatedAt > (ex.updatedAt || 0)) plan.credUpdate.push(inc); else plan.credSame++;
+      continue;
+    }
+    if(credDupKeys(inc).some(k => kC.has(k))) plan.credDup++;
+    plan.credAdd.push({ ...inc, updatedAt: inc.updatedAt || Date.now() });
+  }
+  for(const raw of (data.documents || [])){
+    if(!raw || typeof raw !== 'object' || !raw.fileData) continue;
+    const inc = normDoc(raw);
+    if(exDIds.has(inc.id)){ plan.docSame++; continue; }
+    if(docDupKeys(inc).some(k => kD.has(k))) plan.docDup++;
+    plan.docAdd.push(inc);
+  }
+  return plan;
+}
+async function countShareDuplicates(data){
+  const [exC, exD] = await Promise.all([db.credentials.toArray(), db.documents.toArray()]);
+  const kC = new Set(); exC.forEach(c => credDupKeys(c).forEach(k => kC.add(k)));
+  const kD = new Set(); exD.forEach(d => docDupKeys(d).forEach(k => kD.add(k)));
+  let n = 0;
+  (data.credentials || []).forEach(c => { if(c && typeof c === 'object' && credDupKeys(normCred(c)).some(k => kC.has(k))) n++; });
+  (data.documents || []).forEach(d => { if(d && typeof d === 'object' && docDupKeys(normDoc(d)).some(k => kD.has(k))) n++; });
+  return n;
+}
+async function confirmMergeBackup(){
+  if(!pendingImport || pendingImport.packageType !== 'vault-backup') return;
+  const data = pendingImport;
+  let plan, docsAdd, appItems;
+  try{
+    plan = await planBackupMerge(data);
+    docsAdd = plan.docAdd.map(({ fileData, ...d }) => ({ ...d, fileBlob: base64ToBlob(fileData) }));
+    appItems = (data.appBackups || []).filter(a => a && a.fileData && a.appName).map(a => {
+      const blob = base64ToBlob(a.fileData);
+      return { file: blob, fileName: a.fileName || 'backup.json', fileSize: a.fileSize || blob.size, appName: String(a.appName),
+               backupDate: Number(a.backupDate) || Number(a.addedAt) || Date.now(), dateSource: a.dateSource || 'file date', error: '' };
+    });
+  }catch(err){ showToast('Could not read that backup file'); return; }
+
+  await db.credentials.bulkPut([...plan.credAdd, ...plan.credUpdate]);
+  await db.documents.bulkPut(docsAdd);
+  const newKeys = [
+    ...plan.credAdd.map(c => 'credential:' + c.id), ...plan.credUpdate.map(c => 'credential:' + c.id),
+    ...docsAdd.map(d => 'document:' + d.id)
+  ];
+  if(newKeys.length) markChanged();
+  invalidateDup();
+  pendingImport = null;
+  closeModal('import-modal');
+
+  const parts = [];
+  if(plan.credAdd.length) parts.push(`${plan.credAdd.length} credential${plan.credAdd.length === 1 ? '' : 's'} added`);
+  if(plan.credUpdate.length) parts.push(`${plan.credUpdate.length} updated`);
+  if(docsAdd.length) parts.push(`${docsAdd.length} document${docsAdd.length === 1 ? '' : 's'} added`);
+  const summary = parts.length ? 'Merged: ' + parts.join(' · ') : 'Merge: nothing new in credentials or documents';
+
+  await render();
+  if(appItems.length){
+    toastPrefix = summary;
+    afterQueueCb = () => promptDupReview(newKeys);
+    await processAppBackups(appItems);
+  } else {
+    showToast(summary);
+    promptDupReview(newKeys);
+  }
 }
 
 /* ---------- Clear all data ---------- */
@@ -1635,6 +2226,7 @@ async function confirmClearAllData(){
   await db.credentials.clear();
   await db.documents.clear();
   await db.appBackups.clear();
+  dupDismissed.clear(); persistDismissed();
   clearChangeCounter();
   closeModal('clear-data-modal');
   render();
@@ -1643,7 +2235,7 @@ async function confirmClearAllData(){
 
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
-  const order = ['confirm-modal','import-passphrase-modal','export-passphrase-modal','xlsx-import-modal','appbackup-modal','import-modal','share-modal','credential-modal','document-modal','clear-data-modal'];
+  const order = ['confirm-modal','import-passphrase-modal','export-passphrase-modal','xlsx-import-modal','appbackup-modal','import-modal','share-modal','dup-modal','credential-modal','document-modal','clear-data-modal'];
   for(const id of order){
     const m = document.getElementById(id);
     if(m && !m.classList.contains('hidden')){ if(id === 'xlsx-import-modal') cancelXlsxImport(); else closeModal(id); break; }
