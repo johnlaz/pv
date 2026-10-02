@@ -16,7 +16,7 @@ installable straight to your home screen or desktop.
 
 ## Install
 
-Open the hosted page and use your browser's "Add to Home Screen" (iOS/Android)
+Open the hosted page, launch the app from `/app/`, and use your browser's "Add to Home Screen" (iOS/Android)
 or the install icon in the address bar (Chrome/Edge desktop). Once installed
 it launches full-screen like a native app and keeps working offline.
 
@@ -35,11 +35,12 @@ browser profile, so treat device access accordingly.
 
 ## Files
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `index.html` | The entire app |
-| `manifest.json` | PWA install metadata |
-| `service-worker.js` | Offline caching |
-| `icon-192.png` / `icon-512.png` | App icons |
-| `icon-512-maskable.png` | Android adaptive icon |
-| `apple-touch-icon.png` | iOS home screen icon |
+| `index.html` | Landing page |
+| `app/index.html` | The entire app |
+| `app/manifest.json` | PWA install metadata |
+| `app/service-worker.js` | Offline caching |
+| `app/icon-192.png` / `app/icon-512.png` | App icons |
+| `app/icon-512-maskable.png` | Android adaptive icon |
+| `app/apple-touch-icon.png` | iOS home screen icon |
