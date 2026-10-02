@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Vault — Personal & Business Credential Manager</title>
 <meta name="description" content="A private, local-first vault for logins, subscriptions and important documents. Personal and Business in one app. No accounts, no servers, no tracking. Installs as a PWA.">
-<meta name="theme-color" content="#0b0f1e">
+<meta name="theme-color" content="#ffffff">
 <meta property="og:title" content="Vault — Personal & Business Credential Manager">
 <meta property="og:description" content="Logins, subscriptions and documents — organized, private, and stored only on your device.">
 <meta property="og:type" content="website">
@@ -16,27 +16,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy-950:#070a14; --navy-900:#0b0f1e; --navy-850:#0f1428; --navy-800:#131a2e; --navy-700:#1a2340; --navy-600:#232f52;
-    --gold-400:#e2c375; --gold-500:#d4af37; --gold-600:#b8932c;
-    --teal-400:#5eead4; --teal-500:#2dd4bf; --teal-600:#0f9d8f;
-    --text:#e2e8f0; --muted:#94a3b8; --dim:#64748b;
-    --line:rgba(255,255,255,.08);
+    --navy-950:#1b1326; --navy-900:#f3eef9; --navy-850:#ffffff; --navy-800:#f4f0f9; --navy-700:#ebe5f3; --navy-600:#ddd3ec;
+    --gold-400:#c9461a; --gold-500:#ef6a35; --gold-600:#b83a12;
+    --teal-400:#0d7a5f; --teal-500:#10a37a; --teal-600:#0f8f6b;
+    --text:#2a1f3a; --muted:#5f5377; --dim:#7a6f92;
+    --line:rgba(42,31,58,.13);
   }
   *{ box-sizing:border-box; margin:0; padding:0; }
   html{ scroll-behavior:smooth; }
   body{
     font-family:'DM Sans',system-ui,sans-serif; color:var(--text); line-height:1.6;
-    background:radial-gradient(circle at 20% 0%, #131a2e 0%, #0b0f1e 45%, #070a14 100%) fixed;
+    background:radial-gradient(circle at 20% 0%, #f8f5fc 0%, #efe9f6 50%, #e5ddf0 100%) fixed;
     -webkit-font-smoothing:antialiased; overflow-x:hidden;
   }
   a{ color:inherit; text-decoration:none; }
   .wrap{ max-width:1120px; margin:0 auto; padding:0 24px; }
   .serif{ font-family:'Playfair Display',serif; }
-  .glass{ background:rgba(255,255,255,.04); border:1px solid var(--line); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .glass{ background:#ffffff; box-shadow:0 2px 10px rgba(42,31,58,.07); border:1px solid var(--line); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
   .gold-text{ background:linear-gradient(135deg,var(--gold-400),var(--gold-600)); -webkit-background-clip:text; background-clip:text; color:transparent; }
 
   /* Nav */
-  nav{ position:sticky; top:0; z-index:50; background:rgba(11,15,30,.82); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top,0); }
+  nav{ position:sticky; top:0; z-index:50; background:rgba(255,255,255,.86); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--line); padding-top:env(safe-area-inset-top,0); }
   .nav-in{ display:flex; align-items:center; justify-content:space-between; height:64px; }
   .brand{ display:flex; align-items:center; gap:10px; font-family:'Playfair Display',serif; font-weight:700; font-size:22px; color:var(--gold-400); }
   .brand img{ width:30px; height:30px; border-radius:8px; }
@@ -44,17 +44,17 @@
   .nav-links a:hover{ color:var(--gold-400); }
   .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 24px; border-radius:12px; font-weight:600; font-size:15px; transition:transform .15s, filter .15s, background .15s; cursor:pointer; border:0; font-family:inherit; }
   .btn:hover{ transform:translateY(-1px); }
-  .btn-gold{ background:linear-gradient(135deg,var(--gold-400),var(--gold-600)); color:var(--navy-950); box-shadow:0 8px 28px rgba(212,175,55,.22); }
+  .btn-gold{ background:linear-gradient(135deg,#ffa27a,#e0592a); color:var(--navy-950); box-shadow:0 8px 28px rgba(255,127,80,.22); }
   .btn-gold:hover{ filter:brightness(1.08); }
-  .btn-ghost{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text); }
-  .btn-ghost:hover{ background:rgba(255,255,255,.09); }
+  .btn-ghost{ background:rgba(42,31,58,.05); border:1px solid rgba(42,31,58,.16); color:var(--text); }
+  .btn-ghost:hover{ background:rgba(42,31,58,.1); }
   .btn-sm{ padding:8px 16px; font-size:14px; border-radius:10px; }
 
   /* Hero */
   .hero{ padding:84px 0 72px; position:relative; }
-  .hero::before{ content:""; position:absolute; top:-120px; left:50%; width:760px; height:760px; transform:translateX(-50%); background:radial-gradient(circle, rgba(212,175,55,.11), transparent 62%); pointer-events:none; }
+  .hero::before{ content:""; position:absolute; top:-120px; left:50%; width:760px; height:760px; transform:translateX(-50%); background:radial-gradient(circle, rgba(255,127,80,.11), transparent 62%); pointer-events:none; }
   .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center; position:relative; }
-  .eyebrow{ display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--teal-400); background:rgba(45,212,191,.08); border:1px solid rgba(45,212,191,.25); margin-bottom:22px; }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--teal-400); background:rgba(98,224,180,.08); border:1px solid rgba(98,224,180,.25); margin-bottom:22px; }
   .eyebrow i{ width:6px; height:6px; border-radius:50%; background:var(--teal-400); box-shadow:0 0 8px var(--teal-400); }
   h1{ font-family:'Playfair Display',serif; font-weight:800; font-size:clamp(38px,5.6vw,64px); line-height:1.06; letter-spacing:-.02em; margin-bottom:22px; }
   .lead{ font-size:18px; color:var(--muted); max-width:520px; margin-bottom:34px; }
@@ -63,25 +63,25 @@
   .trust span::before{ content:"✓"; color:var(--teal-500); margin-right:6px; font-weight:700; }
 
   /* App mock */
-  .mock{ border-radius:20px; padding:0; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(212,175,55,.08); transform:perspective(1400px) rotateY(-5deg) rotateX(2deg); }
+  .mock{ border-radius:20px; padding:0; overflow:hidden; box-shadow:0 30px 80px rgba(42,31,58,.25), 0 0 0 1px rgba(255,127,80,.08); transform:perspective(1400px) rotateY(-5deg) rotateX(2deg); }
   .mock-bar{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:var(--navy-850); border-bottom:1px solid var(--line); }
   .mock-bar b{ font-family:'Playfair Display',serif; color:var(--gold-400); font-size:17px; }
   .mock-bar small{ display:block; font-size:10px; color:var(--dim); letter-spacing:.04em; }
   .dots{ display:flex; gap:6px; }
-  .dots i{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.14); }
+  .dots i{ width:9px; height:9px; border-radius:50%; background:rgba(42,31,58,.2); }
   .mock-body{ padding:18px; }
-  .seg{ display:inline-flex; padding:4px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid var(--line); margin-bottom:14px; }
+  .seg{ display:inline-flex; padding:4px; border-radius:12px; background:#ebe5f3; border:1px solid var(--line); margin-bottom:14px; }
   .seg span{ padding:7px 18px; border-radius:9px; font-size:12px; font-weight:600; color:var(--muted); }
-  .seg span.on{ background:linear-gradient(135deg,var(--gold-400),var(--gold-600)); color:var(--navy-950); }
+  .seg span.on{ background:linear-gradient(135deg,#ffa27a,#e0592a); color:var(--navy-950); }
   .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; font-size:12px; font-weight:600; color:var(--dim); }
   .tabs span{ padding:8px 14px; border-bottom:2px solid transparent; }
   .tabs span.on{ color:var(--gold-400); border-color:var(--gold-500); }
-  .row{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.035); border:1px solid var(--line); margin-bottom:9px; }
+  .row{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:12px; background:#f5f1fa; border:1px solid var(--line); margin-bottom:9px; }
   .ico{ width:34px; height:34px; border-radius:9px; display:grid; place-items:center; font-size:16px; background:var(--navy-700); flex-shrink:0; }
-  .row .t{ font-size:13px; font-weight:600; color:#f1f5f9; line-height:1.2; }
+  .row .t{ font-size:13px; font-weight:600; color:#1b1326; line-height:1.2; }
   .row .s{ font-size:11px; color:var(--dim); }
   .row .pw{ margin-left:auto; font-size:12px; letter-spacing:2px; color:var(--dim); }
-  .tag{ margin-left:auto; font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(45,212,191,.12); color:var(--teal-400); }
+  .tag{ margin-left:auto; font-size:10px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(98,224,180,.12); color:var(--teal-400); }
 
   /* Sections */
   section{ padding:84px 0; }
@@ -92,9 +92,9 @@
 
   .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
   .card{ border-radius:18px; padding:28px; transition:transform .2s, border-color .2s; }
-  .card:hover{ transform:translateY(-3px); border-color:rgba(212,175,55,.3); }
-  .card .ci{ width:46px; height:46px; border-radius:12px; display:grid; place-items:center; font-size:22px; margin-bottom:18px; background:linear-gradient(135deg,rgba(212,175,55,.18),rgba(212,175,55,.05)); border:1px solid rgba(212,175,55,.25); }
-  .card h3{ font-size:18px; font-weight:700; margin-bottom:8px; color:#f8fafc; }
+  .card:hover{ transform:translateY(-3px); border-color:rgba(255,127,80,.3); }
+  .card .ci{ width:46px; height:46px; border-radius:12px; display:grid; place-items:center; font-size:22px; margin-bottom:18px; background:linear-gradient(135deg,rgba(255,127,80,.18),rgba(255,127,80,.05)); border:1px solid rgba(255,127,80,.25); }
+  .card h3{ font-size:18px; font-weight:700; margin-bottom:8px; color:#1b1326; }
   .card p{ font-size:14.5px; color:var(--muted); }
 
   /* Split */
@@ -103,31 +103,31 @@
   .copy h2{ text-align:left; }
   .copy p{ color:var(--muted); font-size:16.5px; margin-bottom:16px; }
   .checks{ list-style:none; margin-top:20px; }
-  .checks li{ position:relative; padding-left:30px; margin-bottom:12px; font-size:15px; color:#cbd5e1; }
-  .checks li::before{ content:"✓"; position:absolute; left:0; top:1px; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; background:rgba(45,212,191,.14); color:var(--teal-400); }
+  .checks li{ position:relative; padding-left:30px; margin-bottom:12px; font-size:15px; color:#43375a; }
+  .checks li::before{ content:"✓"; position:absolute; left:0; top:1px; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; background:rgba(98,224,180,.14); color:var(--teal-400); }
   .panel{ border-radius:20px; padding:26px; }
 
   .flow{ display:flex; flex-direction:column; gap:12px; }
-  .step{ display:flex; gap:14px; align-items:center; padding:14px 16px; border-radius:14px; background:rgba(255,255,255,.035); border:1px solid var(--line); }
-  .step .n{ width:30px; height:30px; flex-shrink:0; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:linear-gradient(135deg,var(--gold-400),var(--gold-600)); color:var(--navy-950); }
-  .step b{ display:block; font-size:14px; color:#f1f5f9; }
+  .step{ display:flex; gap:14px; align-items:center; padding:14px 16px; border-radius:14px; background:#f5f1fa; border:1px solid var(--line); }
+  .step .n{ width:30px; height:30px; flex-shrink:0; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:linear-gradient(135deg,#ffa27a,#e0592a); color:var(--navy-950); }
+  .step b{ display:block; font-size:14px; color:#1b1326; }
   .step span{ font-size:12.5px; color:var(--dim); }
 
   .flag{ padding:14px 16px; border-radius:14px; background:rgba(245,158,11,.07); border:1px solid rgba(245,158,11,.3); margin-top:6px; }
-  .flag b{ font-size:12px; color:#fcd34d; }
-  .flag p{ font-size:12px; color:rgba(253,230,138,.85); margin:4px 0 0; }
+  .flag b{ font-size:12px; color:#92400e; }
+  .flag p{ font-size:12px; color:rgba(120,53,15,.92); margin:4px 0 0; }
 
   /* Install */
   .install{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
   .install .card h3{ display:flex; align-items:center; gap:10px; }
-  .install .card p b{ color:#e2e8f0; font-weight:600; }
+  .install .card p b{ color:#1b1326; font-weight:600; }
 
   /* Honest privacy */
-  .privacy{ border-radius:22px; padding:44px; display:grid; grid-template-columns:1fr 1fr; gap:40px; border-color:rgba(212,175,55,.2); }
+  .privacy{ border-radius:22px; padding:44px; display:grid; grid-template-columns:1fr 1fr; gap:40px; border-color:rgba(255,127,80,.2); }
   .privacy h2{ text-align:left; font-size:32px; }
   .privacy p{ color:var(--muted); font-size:15.5px; margin-bottom:14px; }
   .privacy p b{ color:var(--gold-400); font-weight:600; }
-  .note{ font-size:14px; padding:14px 16px; border-radius:12px; background:rgba(255,255,255,.04); border-left:3px solid var(--gold-500); color:#cbd5e1; }
+  .note{ font-size:14px; padding:14px 16px; border-radius:12px; background:#f5f1fa; border-left:3px solid var(--gold-500); color:#43375a; }
 
   /* Final CTA */
   .final{ text-align:center; padding:96px 0 110px; }
@@ -232,7 +232,7 @@
       <p>Need to hand a teammate or family member a few logins? Select just those entries and export them to a portable file. No roles, no accounts, no giving away the whole vault.</p>
       <ul class="checks">
         <li>Choose exactly which entries go in the share file</li>
-        <li>Importing <b style="color:#e2e8f0;font-weight:600">merges</b> items in — nothing existing is touched or overwritten</li>
+        <li>Importing <b style="color:#1b1326;font-weight:600">merges</b> items in — nothing existing is touched or overwritten</li>
         <li>Optional passphrase protection on every share and backup</li>
       </ul>
     </div>
@@ -242,9 +242,9 @@
         <div class="step"><div class="n">2</div><div><b>Export, optionally encrypted</b><span>AES-256-GCM with your passphrase</span></div></div>
         <div class="step"><div class="n">3</div><div><b>They import it</b><span>Merged in alongside what they already have</span></div></div>
       </div>
-      <div class="flag" style="margin-top:14px;background:rgba(45,212,191,.07);border-color:rgba(45,212,191,.28)">
+      <div class="flag" style="margin-top:14px;background:rgba(98,224,180,.07);border-color:rgba(98,224,180,.28)">
         <b style="color:var(--teal-400)">🔒 Encrypted export</b>
-        <p style="color:rgba(153,246,228,.85)">Passphrase is never stored — it only exists in your head.</p>
+        <p style="color:#0b6b52">Passphrase is never stored — it only exists in your head.</p>
       </div>
     </div>
   </div>
