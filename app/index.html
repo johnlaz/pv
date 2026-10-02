@@ -7,22 +7,43 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#0b0f1e">
+<meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Vault">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+/* Theme: follows the system by default; Settings can force Light or Dark. */
+(function(){
+  var pref='system'; try{ pref=localStorage.getItem('vault_theme')||'system'; }catch(e){}
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function apply(){
+    var dark = pref==='dark' || (pref==='system' && mq.matches);
+    document.documentElement.classList.toggle('dark', dark);
+    var m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute('content', dark?'#241b33':'#ffffff');
+  }
+  window.__applyTheme=function(p){ pref=p; apply(); };
+  try{ mq.addEventListener('change', function(){ if(pref==='system') apply(); }); }catch(e){ try{ mq.addListener(function(){ if(pref==='system') apply(); }); }catch(_){} }
+  apply();
+  document.addEventListener('DOMContentLoaded', apply);
+})();
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.4.4/dexie.min.js"></script>
 <script>
   tailwind.config = {
+    darkMode: 'class',
     theme: {
       extend: {
         colors: {
-          navy: { 950:'#070a14', 900:'#0b0f1e', 850:'#0f1428', 800:'#131a2e', 700:'#1a2340', 600:'#232f52' },
-          gold: { 400:'#e2c375', 500:'#d4af37', 600:'#b8932c' },
-          teal: { 400:'#5eead4', 500:'#2dd4bf', 600:'#0f9d8f' }
+          navy: { 950:'rgb(var(--c-navy-950) / <alpha-value>)', 900:'rgb(var(--c-navy-900) / <alpha-value>)', 850:'rgb(var(--c-navy-850) / <alpha-value>)', 800:'rgb(var(--c-navy-800) / <alpha-value>)', 700:'rgb(var(--c-navy-700) / <alpha-value>)', 600:'rgb(var(--c-navy-600) / <alpha-value>)' },
+          gold: { 400:'rgb(var(--c-gold-400) / <alpha-value>)', 500:'rgb(var(--c-gold-500) / <alpha-value>)', 600:'rgb(var(--c-gold-600) / <alpha-value>)' },
+          teal: { 300:'rgb(var(--c-teal-300) / <alpha-value>)', 400:'rgb(var(--c-teal-400) / <alpha-value>)', 500:'rgb(var(--c-teal-500) / <alpha-value>)', 600:'rgb(var(--c-teal-600) / <alpha-value>)', 900:'rgb(var(--c-teal-900) / <alpha-value>)' },
+          slate: { 100:'rgb(var(--c-slate-100) / <alpha-value>)', 200:'rgb(var(--c-slate-200) / <alpha-value>)', 300:'rgb(var(--c-slate-300) / <alpha-value>)', 400:'rgb(var(--c-slate-400) / <alpha-value>)', 500:'rgb(var(--c-slate-500) / <alpha-value>)', 600:'rgb(var(--c-slate-600) / <alpha-value>)' },
+          rose: { 200:'rgb(var(--c-rose-200) / <alpha-value>)', 300:'rgb(var(--c-rose-300) / <alpha-value>)', 400:'rgb(var(--c-rose-400) / <alpha-value>)', 600:'rgb(var(--c-rose-600) / <alpha-value>)', 700:'rgb(var(--c-rose-700) / <alpha-value>)', 900:'rgb(var(--c-rose-900) / <alpha-value>)' },
+          amber: { 200:'rgb(var(--c-amber-200) / <alpha-value>)', 300:'rgb(var(--c-amber-300) / <alpha-value>)', 900:'rgb(var(--c-amber-900) / <alpha-value>)' },
+          ink: 'rgb(var(--c-ink) / <alpha-value>)'
         },
         fontFamily: {
           serif: ['"Playfair Display"','serif'],
@@ -33,14 +54,15 @@
   }
 </script>
 <style>
-  body{ background:radial-gradient(circle at 20% 0%, #131a2e 0%, #0b0f1e 45%, #070a14 100%); }
-  .glass{ background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(12px); }
-  .glass-solid{ background:#0f1428; border:1px solid rgba(255,255,255,0.09); }
+  :root{ color-scheme:light; --c-navy-950:27 19 38; --c-navy-900:243 238 249; --c-navy-850:255 255 255; --c-navy-800:244 240 249; --c-navy-700:235 229 243; --c-navy-600:221 211 236; --c-gold-400:201 70 26; --c-gold-500:239 106 53; --c-gold-600:184 58 18; --c-teal-300:15 118 110; --c-teal-400:13 122 95; --c-teal-500:16 163 122; --c-teal-600:16 163 122; --c-teal-900:153 246 228; --c-slate-100:27 19 38; --c-slate-200:42 31 58; --c-slate-300:67 55 90; --c-slate-400:95 83 119; --c-slate-500:122 111 146; --c-slate-600:154 144 176; --c-rose-200:136 19 55; --c-rose-300:159 18 57; --c-rose-400:190 18 60; --c-rose-600:225 29 72; --c-rose-700:190 18 60; --c-rose-900:253 164 175; --c-amber-200:120 53 15; --c-amber-300:146 64 14; --c-amber-900:252 211 77; --c-ink:0 0 0; --bg1:#f8f5fc; --bg2:#efe9f6; --bg3:#e5ddf0; --card:#ffffff; --card-solid:#ffffff; --card-line:rgba(42,31,58,0.12); --card-line-solid:rgba(42,31,58,0.14); --card-shadow:0 1px 3px rgba(42,31,58,0.08); }
+  :root.dark{ color-scheme:dark; --c-navy-950:13 9 18; --c-navy-900:19 14 27; --c-navy-850:29 22 41; --c-navy-800:38 29 53; --c-navy-700:51 39 74; --c-navy-600:67 52 95; --c-gold-400:255 162 122; --c-gold-500:255 127 80; --c-gold-600:224 89 42; --c-teal-300:154 240 207; --c-teal-400:98 224 180; --c-teal-500:52 211 153; --c-teal-600:26 157 117; --c-teal-900:15 61 49; --c-slate-100:247 243 252; --c-slate-200:237 231 245; --c-slate-300:211 202 225; --c-slate-400:179 169 196; --c-slate-500:143 132 166; --c-slate-600:111 100 136; --c-rose-200:254 205 211; --c-rose-300:253 164 175; --c-rose-400:251 113 133; --c-rose-600:225 29 72; --c-rose-700:190 18 60; --c-rose-900:136 19 55; --c-amber-200:253 230 138; --c-amber-300:252 211 77; --c-amber-900:120 53 15; --c-ink:255 255 255; --bg1:#1a1226; --bg2:#0f0a16; --bg3:#0a0710; --card:#1d1629; --card-solid:#241b33; --card-line:rgba(255,255,255,0.13); --card-line-solid:rgba(255,255,255,0.14); --card-shadow:none; }
+  body{ background:radial-gradient(circle at 20% 0%, var(--bg1) 0%, var(--bg2) 50%, var(--bg3) 100%); }
+  .glass{ background:var(--card); border:1px solid var(--card-line); box-shadow:var(--card-shadow); backdrop-filter:blur(12px); }
+  .glass-solid{ background:var(--card-solid); border:1px solid var(--card-line-solid); }
   ::-webkit-scrollbar{ width:8px; height:8px; }
   ::-webkit-scrollbar-track{ background:transparent; }
-  ::-webkit-scrollbar-thumb{ background:rgba(212,175,55,0.3); border-radius:8px; }
-  .gold-grad{ background:linear-gradient(135deg,#e2c375,#b8932c); }
-  input, textarea, select { color-scheme: dark; }
+  ::-webkit-scrollbar-thumb{ background:rgba(255,127,80,0.3); border-radius:8px; }
+  .gold-grad{ background:linear-gradient(135deg,#ffa27a,#e0592a); }
   .fade-in{ animation:fadeIn .18s ease-out; }
   @keyframes fadeIn{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
 </style>
@@ -48,7 +70,7 @@
 <body class="text-slate-200 font-sans antialiased min-h-screen flex flex-col">
 
 <!-- Header -->
-<header class="glass-solid sticky top-0 z-40 shadow-lg shadow-black/30">
+<header class="glass-solid sticky top-0 z-40 shadow-lg shadow-black/10 dark:shadow-black/30">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
     <div class="flex items-center gap-3">
       <span class="text-2xl">🗝️</span>
@@ -59,11 +81,12 @@
     </div>
     <div class="flex items-center gap-2 flex-wrap justify-center">
       <button onclick="openShareModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-teal-600/20 text-teal-300 border border-teal-500/30 hover:bg-teal-600/30 transition">Share Selected</button>
-      <button onclick="openImportModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Import</button>
-      <button onclick="exportBackup()" class="relative text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">
+      <button onclick="openImportModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition">Import</button>
+      <button onclick="exportBackup()" class="relative text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition">
         Backup
         <span id="backup-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-gold-500 animate-pulse"></span>
       </button>
+      <button onclick="openSettingsModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition" title="Settings" aria-label="Settings">⚙ Settings</button>
       <button onclick="openClearDataModal()" class="text-sm px-3 py-1.5 rounded-lg font-medium bg-rose-900/40 text-rose-300 border border-rose-700/40 hover:bg-rose-900/60 transition">Clear All</button>
     </div>
   </div>
@@ -94,7 +117,7 @@
 <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 pb-16">
 
   <!-- Tabs -->
-  <div class="flex border-b border-white/10 mb-5 gap-1">
+  <div class="flex border-b border-ink/10 mb-5 gap-1">
     <button onclick="setTab('credentials')" id="tab-credentials" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Credentials</button>
     <button onclick="setTab('documents')" id="tab-documents" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">Documents</button>
     <button onclick="setTab('appbackups')" id="tab-appbackups" class="py-2.5 px-5 font-semibold text-sm border-b-2 transition">App Backups</button>
@@ -106,8 +129,8 @@
       <input type="text" id="search-input" placeholder="Search name, category, username..." oninput="render()" class="w-full pl-4 pr-4 py-2.5 rounded-lg glass focus:outline-none focus:ring-2 focus:ring-gold-500/50 text-sm placeholder:text-slate-500">
     </div>
     <div class="flex items-center gap-2">
-      <button onclick="toggleSelectMode()" id="select-mode-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition">Select</button>
-      <button onclick="openDuplicateReview()" id="dup-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition" title="Scan the whole vault for entries that look like copies">Find Duplicates</button>
+      <button onclick="toggleSelectMode()" id="select-mode-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition">Select</button>
+      <button onclick="openDuplicateReview()" id="dup-btn" class="text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition" title="Scan the whole vault for entries that look like copies">Find Duplicates</button>
       <button onclick="openCredentialModal()" id="add-credential-btn" class="text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Credential</button>
       <button onclick="openDocumentModal()" id="add-document-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add Document</button>
       <button onclick="openAppBackupModal()" id="add-appbackup-btn" class="hidden text-sm px-4 py-2 rounded-lg font-semibold gold-grad text-navy-950 hover:brightness-110 transition shadow">+ Add App Backups</button>
@@ -118,8 +141,8 @@
   <div id="view-bar" class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <div id="view-switcher" class="glass p-1 rounded-lg inline-flex"></div>
     <div class="flex items-center gap-2 flex-wrap">
-      <select id="cat-filter" onchange="setCatFilter(this.value)" aria-label="Filter by category" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-white/10 text-xs max-w-[180px]"></select>
-      <select id="sort-select" onchange="setSort(this.value)" aria-label="Sort" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-white/10 text-xs">
+      <select id="cat-filter" onchange="setCatFilter(this.value)" aria-label="Filter by category" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-ink/10 text-xs max-w-[180px]"></select>
+      <select id="sort-select" onchange="setSort(this.value)" aria-label="Sort" class="px-2.5 py-1.5 rounded-lg bg-navy-800 border border-ink/10 text-xs">
         <option value="name">Name A–Z</option>
         <option value="namez">Name Z–A</option>
         <option value="category">Category</option>
@@ -144,7 +167,7 @@
 </main>
 
 <!-- Credential Modal -->
-<div id="credential-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="credential-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <h3 id="cred-modal-title" class="font-serif font-bold text-lg text-gold-400 mb-4">Add Credential</h3>
     <form id="credential-form" onsubmit="saveCredential(event)" class="space-y-4">
@@ -152,14 +175,14 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Domain</label>
-          <select id="cred-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+          <select id="cred-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
             <option value="personal">Personal</option>
             <option value="business">Business</option>
           </select>
         </div>
         <div>
           <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Type</label>
-          <select id="cred-type" onchange="toggleCredFields()" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+          <select id="cred-type" onchange="toggleCredFields()" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
             <option value="vendor">Login / Site</option>
             <option value="subscription">Subscription</option>
           </select>
@@ -167,36 +190,36 @@
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Name</label>
-        <input type="text" id="cred-name" required placeholder="e.g. AWS, GitHub, Chase Business" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="text" id="cred-name" required placeholder="e.g. AWS, GitHub, Chase Business" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Category</label>
-        <input type="text" id="cred-category" placeholder="e.g. Hosting, Banking, Insurance" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="text" id="cred-category" placeholder="e.g. Hosting, Banking, Insurance" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Username / Email</label>
-          <input type="text" id="cred-username" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+          <input type="text" id="cred-username" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
         </div>
         <div>
           <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Password</label>
-          <input type="text" id="cred-password" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm font-mono">
+          <input type="text" id="cred-password" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm font-mono">
         </div>
       </div>
       <div id="field-url-container">
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Login URL</label>
-        <input type="url" id="cred-url" placeholder="https://example.com/login" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="url" id="cred-url" placeholder="https://example.com/login" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div id="field-billing-container" class="hidden">
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Billing Cycle & Cost</label>
-        <input type="text" id="cred-billing" placeholder="e.g. Monthly - $49/mo" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="text" id="cred-billing" placeholder="e.g. Monthly - $49/mo" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Notes (2FA backup, security Qs, etc.)</label>
-        <textarea id="cred-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
+        <textarea id="cred-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
       </div>
       <div class="flex justify-end gap-3 pt-2">
-        <button type="button" onclick="closeModal('credential-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+        <button type="button" onclick="closeModal('credential-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
         <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save</button>
       </div>
     </form>
@@ -204,24 +227,24 @@
 </div>
 
 <!-- Document Modal -->
-<div id="document-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="document-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-4">Add Document</h3>
     <form id="document-form" onsubmit="saveDocument(event)" class="space-y-4">
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Domain</label>
-        <select id="doc-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <select id="doc-domain" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
           <option value="personal">Personal</option>
           <option value="business">Business</option>
         </select>
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Name</label>
-        <input type="text" id="doc-name" required placeholder="e.g. Business License, Passport" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="text" id="doc-name" required placeholder="e.g. Business License, Passport" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Category</label>
-        <input type="text" id="doc-category" placeholder="e.g. Legal, Insurance, ID" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
+        <input type="text" id="doc-category" placeholder="e.g. Legal, Insurance, ID" required class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm">
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">File (PDF or image)</label>
@@ -230,34 +253,51 @@
       </div>
       <div>
         <label class="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Notes</label>
-        <textarea id="doc-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
+        <textarea id="doc-notes" rows="2" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 focus:ring-2 focus:ring-gold-500/50 text-sm resize-none"></textarea>
       </div>
       <div class="flex justify-end gap-3 pt-2">
-        <button type="button" onclick="closeModal('document-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+        <button type="button" onclick="closeModal('document-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
         <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save</button>
       </div>
     </form>
   </div>
 </div>
 
+<!-- Settings Modal -->
+<div id="settings-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+  <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+    <h3 class="font-serif font-bold text-lg text-gold-400 mb-4">Settings</h3>
+    <p class="text-xs font-semibold tracking-wide uppercase text-slate-400 mb-2">Appearance</p>
+    <div class="glass p-1 rounded-xl flex" role="group" aria-label="Theme">
+      <button id="theme-system" onclick="setThemePref('system')" class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition">System</button>
+      <button id="theme-light" onclick="setThemePref('light')" class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition">Light</button>
+      <button id="theme-dark" onclick="setThemePref('dark')" class="flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition">Dark</button>
+    </div>
+    <p class="text-[11px] text-slate-500 mt-2">System follows your device's light/dark setting.</p>
+    <div class="flex justify-end mt-5">
+      <button onclick="closeModal('settings-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Share Modal -->
-<div id="share-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="share-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-md w-full p-6 fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Share Selected</h3>
     <p id="share-count-text" class="text-sm text-slate-400 mb-4">No items selected.</p>
     <div class="flex flex-col gap-2">
       <button onclick="downloadSharePackage()" class="px-4 py-2.5 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Download Share File (.json)</button>
-      <button onclick="copySharePackage()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Copy to Clipboard</button>
+      <button onclick="copySharePackage()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10">Copy to Clipboard</button>
     </div>
     <p class="text-[11px] text-slate-500 mt-4">The share file contains plain-text credentials — send it only through a channel you trust (not email/SMS if you can help it), and delete it after the recipient imports it.</p>
     <div class="flex justify-end mt-4">
-      <button onclick="closeModal('share-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>
+      <button onclick="closeModal('share-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Close</button>
     </div>
   </div>
 </div>
 
 <!-- Import Modal -->
-<div id="import-modal" onclick="if(event.target===this)closeModal('import-modal')" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="import-modal" onclick="if(event.target===this)closeModal('import-modal')" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-serif font-bold text-lg text-gold-400">Import</h3>
@@ -267,11 +307,11 @@
       <label class="block text-[11px] font-semibold text-slate-400 uppercase">Upload a share or backup file</label>
       <input type="file" id="import-file-input" accept=".json" onchange="handleImportFile(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
       <label class="block text-[11px] font-semibold text-slate-400 uppercase pt-2">...or paste JSON</label>
-      <textarea id="import-paste" rows="4" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-xs font-mono resize-none" placeholder="Paste share package JSON here"></textarea>
-      <button onclick="parseImportPaste()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Parse Pasted JSON</button>
+      <textarea id="import-paste" rows="4" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-xs font-mono resize-none" placeholder="Paste share package JSON here"></textarea>
+      <button onclick="parseImportPaste()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10">Parse Pasted JSON</button>
     </div>
     <div id="import-preview"></div>
-    <div class="border-t border-white/10 mt-5 pt-4 space-y-3">
+    <div class="border-t border-ink/10 mt-5 pt-4 space-y-3">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <label class="block text-[11px] font-semibold text-slate-400 uppercase">Import passwords from Excel</label>
         <button onclick="downloadPasswordTemplate()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-teal-300 border border-teal-500/30 hover:bg-teal-600/30 transition">Download Template (.xlsx)</button>
@@ -280,18 +320,18 @@
       <p class="text-[11px] text-slate-500">Download the template, fill it in, then choose it here. You'll see a preview with any problems before anything is saved.</p>
     </div>
     <div class="flex justify-end pt-4">
-      <button onclick="closeModal('import-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>
+      <button onclick="closeModal('import-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Close</button>
     </div>
   </div>
 </div>
 
 <!-- Excel Import Modal -->
-<div id="xlsx-import-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="xlsx-import-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-3">Import Passwords from Excel</h3>
     <div id="xlsx-preview"></div>
     <div class="flex justify-end gap-3 pt-4">
-      <button onclick="cancelXlsxImport()" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="cancelXlsxImport()" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
       <button id="xlsx-import-btn" onclick="confirmXlsxImport()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Import</button>
     </div>
     <p class="text-[11px] text-slate-500 mt-3">The spreadsheet holds passwords in plain text. Delete it (and any cloud or recycle-bin copy) once the import is done.</p>
@@ -299,14 +339,14 @@
 </div>
 
 <!-- Add App Backups Modal -->
-<div id="appbackup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="appbackup-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Add App Backups</h3>
     <p class="text-xs text-slate-400 mb-4">Choose one or more app backup files (.json). Each app keeps one backup: a newer, same-or-larger file replaces the stored one automatically. An older or smaller file is flagged and you decide.</p>
     <input type="file" id="appbackup-file-input" accept=".json,application/json" multiple onchange="stageAppBackupFiles(event)" class="w-full text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-slate-200 file:text-xs">
     <div id="appbackup-staging" class="mt-4 space-y-2"></div>
     <div class="flex justify-end gap-3 pt-4">
-      <button onclick="closeModal('appbackup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="closeModal('appbackup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
       <button onclick="saveStagedBackups()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 hover:brightness-110">Save Backups</button>
     </div>
   </div>
@@ -314,7 +354,7 @@
 <input type="file" id="appbackup-single-input" accept=".json,application/json" class="hidden" onchange="handleSingleBackupPick(event)">
 
 <!-- App Backup Conflict Modal -->
-<div id="appbackup-conflict-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+<div id="appbackup-conflict-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <h3 id="appbackup-conflict-title" class="font-serif font-bold text-lg text-amber-300 mb-1">Backup flagged</h3>
     <div id="appbackup-conflict-body"></div>
@@ -326,7 +366,7 @@
 </div>
 
 <!-- Duplicate Review Modal -->
-<div id="dup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="dup-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto fade-in">
     <div class="flex items-start justify-between gap-3 mb-1">
       <h3 id="dup-title" class="font-serif font-bold text-lg text-gold-400">Possible Duplicates</h3>
@@ -339,52 +379,52 @@
 </div>
 
 <!-- Clear Data Modal -->
-<div id="clear-data-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="clear-data-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
     <h3 class="font-serif font-bold text-lg text-rose-400 mb-2">Clear All Data</h3>
     <p class="text-sm text-slate-400 mb-4">This permanently deletes every credential, document, and stored app backup on this device. This cannot be undone. Type <span class="font-mono text-rose-300">DELETE</span> to confirm.</p>
-    <input type="text" id="clear-confirm-input" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4" placeholder="DELETE">
+    <input type="text" id="clear-confirm-input" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-sm mb-4" placeholder="DELETE">
     <div class="flex justify-end gap-3">
-      <button onclick="closeModal('clear-data-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="closeModal('clear-data-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
       <button onclick="confirmClearAllData()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Delete Everything</button>
     </div>
   </div>
 </div>
 
 <!-- Generic Confirm Modal -->
-<div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+<div id="confirm-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
     <h3 id="confirm-modal-title" class="font-serif font-bold text-lg text-gold-400 mb-2">Confirm</h3>
     <p id="confirm-modal-message" class="text-sm text-slate-400 mb-5"></p>
     <div class="flex justify-end gap-3">
-      <button onclick="closeModal('confirm-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="closeModal('confirm-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
       <button id="confirm-modal-action" onclick="runConfirm()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-700 hover:bg-rose-600 text-white">Confirm</button>
     </div>
   </div>
 </div>
 
 <!-- Export Passphrase Modal -->
-<div id="export-passphrase-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+<div id="export-passphrase-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Protect This Export</h3>
     <p class="text-sm text-slate-400 mb-4">Set a passphrase to encrypt this file. Without it, anyone who opens the file sees only scrambled data — nothing readable unless it's decrypted back into the app. There's no recovery if you forget it, so keep it somewhere separate from the file itself.</p>
-    <input type="password" id="export-passphrase-input" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4">
+    <input type="password" id="export-passphrase-input" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-sm mb-4">
     <div class="flex flex-col gap-2">
       <button onclick="confirmExportEncrypted()" class="px-4 py-2.5 rounded-lg text-sm font-semibold gold-grad text-navy-950">Encrypt &amp; Export</button>
-      <button onclick="confirmExportPlain()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-white/10">Export Without Encryption</button>
-      <button onclick="closeModal('export-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="confirmExportPlain()" class="px-4 py-2.5 rounded-lg text-sm font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10">Export Without Encryption</button>
+      <button onclick="closeModal('export-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- Import Passphrase Modal -->
-<div id="import-passphrase-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
+<div id="import-passphrase-modal" class="fixed inset-0 bg-black/45 backdrop-blur-sm hidden items-center justify-center p-4 z-[60]">
   <div class="glass-solid rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
     <h3 class="font-serif font-bold text-lg text-gold-400 mb-2">Encrypted File</h3>
     <p class="text-sm text-slate-400 mb-4">This file is encrypted. Enter the passphrase it was exported with.</p>
-    <input type="password" id="import-decrypt-passphrase" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm mb-4">
+    <input type="password" id="import-decrypt-passphrase" placeholder="Passphrase" class="w-full px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-sm mb-4">
     <div class="flex justify-end gap-3">
-      <button onclick="closeModal('import-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Cancel</button>
+      <button onclick="closeModal('import-passphrase-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Cancel</button>
       <button onclick="decryptPendingImport()" class="px-4 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950">Decrypt</button>
     </div>
   </div>
@@ -469,6 +509,22 @@ function updateBackupIndicators(){
 }
 function dismissBackupBanner(){ document.getElementById('backup-banner').classList.add('hidden'); }
 
+/* ---------- Theme (System / Light / Dark) ---------- */
+function getThemePref(){ try{ return localStorage.getItem('vault_theme') || 'system'; }catch(e){ return 'system'; } }
+function renderThemeButtons(){
+  const cur = getThemePref();
+  ['system','light','dark'].forEach(k => {
+    const el = document.getElementById('theme-' + k); if(!el) return;
+    el.className = 'flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition ' + (k===cur ? 'gold-grad text-navy-950' : 'text-slate-300 hover:text-slate-100');
+  });
+}
+function setThemePref(p){
+  try{ localStorage.setItem('vault_theme', p); }catch(e){}
+  if(window.__applyTheme) window.__applyTheme(p);
+  renderThemeButtons();
+}
+function openSettingsModal(){ renderThemeButtons(); openModal('settings-modal'); }
+
 /* ---------- Generic themed confirm modal ---------- */
 let confirmCallback = null;
 function showConfirm(title, message, actionLabel, danger, cb){
@@ -552,10 +608,10 @@ function setDomain(domain){
   catFilter = '';
   document.getElementById('domain-personal').className = domain==='personal'
     ? 'px-5 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 transition'
-    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition';
+    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-slate-100 transition';
   document.getElementById('domain-business').className = domain==='business'
     ? 'px-5 py-2 rounded-lg text-sm font-semibold gold-grad text-navy-950 transition'
-    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition';
+    : 'px-5 py-2 rounded-lg text-sm font-semibold text-slate-300 hover:text-slate-100 transition';
   render();
 }
 
@@ -588,7 +644,7 @@ function toggleSelectMode(){
   btn.innerText = selectMode ? 'Cancel Select' : 'Select';
   btn.className = selectMode
     ? 'text-sm px-3 py-2 rounded-lg font-medium bg-teal-600/30 text-teal-300 border border-teal-500/40 transition'
-    : 'text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-white/10 transition';
+    : 'text-sm px-3 py-2 rounded-lg font-medium bg-navy-700 hover:bg-navy-600 border border-ink/10 transition';
   render();
 }
 
@@ -636,7 +692,7 @@ function updateViewBar(all, shown, cats){
   if(!defs.some(d => d[0] === viewMode[activeTab])) viewMode[activeTab] = defs[0][0];
   const mode = viewMode[activeTab];
   document.getElementById('view-switcher').innerHTML = defs.map(([k, l]) =>
-    `<button onclick="setView('${k}')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition ${mode === k ? 'gold-grad text-navy-950' : 'text-slate-300 hover:text-white'}">${l}</button>`).join('');
+    `<button onclick="setView('${k}')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition ${mode === k ? 'gold-grad text-navy-950' : 'text-slate-300 hover:text-slate-100'}">${l}</button>`).join('');
   const sorted = [...cats.entries()].sort((a, b) => a[1].localeCompare(b[1], undefined, {sensitivity:'base'}));
   document.getElementById('cat-filter').innerHTML = `<option value="">All categories (${sorted.length})</option>` +
     sorted.map(([k, l]) => `<option value="${escapeHtml(k)}" ${catFilter === k ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('');
@@ -786,7 +842,7 @@ function credCard(c){
       <div class="min-w-0"><p class="text-[11px] text-slate-500 uppercase mb-0.5">Password</p>${credPassBlock(c)}</div>
     </div>
     <div class="min-w-0">${credExtra(c, 'max-w-full')}</div>
-    <div class="flex justify-end gap-3 mt-auto pt-2 border-t border-white/5 text-xs">
+    <div class="flex justify-end gap-3 mt-auto pt-2 border-t border-ink/5 text-xs">
       <button onclick='editCredential("${c.id}")' class="text-slate-400 hover:text-gold-400 font-medium">Edit</button>
       <button onclick="deleteCredential('${c.id}')" class="text-slate-400 hover:text-rose-400 font-medium">Del</button>
     </div>
@@ -847,7 +903,7 @@ function docCard(d){
       </div>
     </div>
     ${d.notes ? `<p class="text-xs text-slate-400 line-clamp-2">${escapeHtml(d.notes)}</p>` : ''}
-    <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
+    <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-ink/5">
       <span>${escapeHtml(d.fileName)} · ${formatBytes(d.fileSize)}</span>
       <div class="flex gap-2">
         <button onclick="viewDocument('${d.id}')" class="text-teal-400 hover:underline font-medium">View</button>
@@ -1433,10 +1489,10 @@ function renderStaging(){
         <button onclick="removeStaged(${i})" class="text-slate-500 hover:text-rose-400 text-xs">Remove</button>
       </div>
       <div class="flex gap-2">
-        <select onchange="setStagedApp(${i}, this.value)" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm">
+        <select onchange="setStagedApp(${i}, this.value)" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-sm">
           <option value="">Choose app…</option>${opts}<option value="__other__" ${s.other ? 'selected' : ''}>Other (type a name)…</option>
         </select>
-        ${s.other ? `<input type="text" value="${escapeHtml(s.appName)}" oninput="stagedBackups[${i}].appName=this.value" placeholder="App name" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-white/10 text-sm">` : ''}
+        ${s.other ? `<input type="text" value="${escapeHtml(s.appName)}" oninput="stagedBackups[${i}].appName=this.value" placeholder="App name" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-navy-800 border border-ink/10 text-sm">` : ''}
       </div>
       ${!s.appName && !s.other ? '<p class="text-[11px] text-amber-300">Couldn\'t tell which app this is — pick one.</p>' : ''}
     </div>`;
@@ -1596,7 +1652,7 @@ async function renderAppBackups(){
         <div><p class="text-[11px] text-slate-500 uppercase">Size</p><p class="text-slate-200">${formatBytes(a.fileSize)}</p></div>
       </div>
       ${flagDetail}
-      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-white/5">
+      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-auto pt-2 border-t border-ink/5">
         <span>Stored ${new Date(a.addedAt).toLocaleDateString()}</span>
         <div class="flex gap-3">
           <button onclick="downloadAppBackup('${a.id}')" class="text-teal-400 hover:underline font-medium">Download</button>
@@ -1851,7 +1907,7 @@ function renderXlsxPreview(){
     <div class="max-h-64 overflow-y-auto glass rounded-lg p-2">
       <table class="w-full text-xs text-left">
         <thead class="text-slate-500"><tr><th class="py-1 pr-2 font-medium">Row</th><th class="pr-2 font-medium">Status</th><th class="pr-2 font-medium">Name</th><th class="pr-2 font-medium">Username</th><th class="font-medium">Details</th></tr></thead>
-        <tbody>${sorted.slice(0, LIMIT).map(r => `<tr class="border-t border-white/5 align-top"><td class="py-1 pr-2 text-slate-500">${r.rowNum}</td><td class="pr-2 whitespace-nowrap">${badge(r)}</td><td class="pr-2 text-slate-200 max-w-[140px] truncate">${escapeHtml(r.data.name || '—')}</td><td class="pr-2 text-slate-400 max-w-[140px] truncate">${escapeHtml(r.data.username || '—')}</td><td class="text-slate-400">${escapeHtml(issue(r))}</td></tr>`).join('')}</tbody>
+        <tbody>${sorted.slice(0, LIMIT).map(r => `<tr class="border-t border-ink/5 align-top"><td class="py-1 pr-2 text-slate-500">${r.rowNum}</td><td class="pr-2 whitespace-nowrap">${badge(r)}</td><td class="pr-2 text-slate-200 max-w-[140px] truncate">${escapeHtml(r.data.name || '—')}</td><td class="pr-2 text-slate-400 max-w-[140px] truncate">${escapeHtml(r.data.username || '—')}</td><td class="text-slate-400">${escapeHtml(issue(r))}</td></tr>`).join('')}</tbody>
       </table>
       ${sorted.length > LIMIT ? `<p class="text-[11px] text-slate-500 pt-2">Showing ${LIMIT} of ${sorted.length} rows (errors first).</p>` : ''}
     </div>
@@ -2006,7 +2062,7 @@ function dupClusterHtml(c, ci){
       ? `<button onclick="dupReveal(${ci},${i})" class="text-teal-400 hover:underline">Show password</button> <span id="dupp-${ci}-${i}" class="font-mono text-slate-200 break-all"></span>`
       : `<button onclick="dupViewDoc(${ci},${i})" class="text-teal-400 hover:underline">View file</button>`;
     return `
-    <div class="rounded-lg p-3 flex items-start justify-between gap-3 bg-navy-800/60 border ${newest ? 'border-teal-500/40' : 'border-white/10'}">
+    <div class="rounded-lg p-3 flex items-start justify-between gap-3 bg-navy-800/60 border ${newest ? 'border-teal-500/40' : 'border-ink/10'}">
       <div class="min-w-0 space-y-0.5">
         <p class="text-sm text-slate-100 truncate">${isCred ? '🔑' : '📄'} ${escapeHtml(r.name)}${tag}</p>
         <p class="text-xs text-slate-400 truncate">${detail}</p>
@@ -2023,7 +2079,7 @@ function dupClusterHtml(c, ci){
     <div class="space-y-2">${rows}</div>
     <div class="flex flex-wrap items-center justify-end gap-2 mt-3">
       ${c.tied ? '<p class="text-[11px] text-amber-200 mr-auto">These share the same date, so choose which to delete yourself.</p>' : `<button onclick="dupKeepNewest(${ci})" class="px-3 py-1.5 rounded-lg text-xs font-semibold gold-grad text-navy-950 hover:brightness-110">Keep newest, delete older</button>`}
-      <button onclick="dupDismiss(${ci})" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-white/10 hover:bg-white/5">Not duplicates — keep all</button>
+      <button onclick="dupDismiss(${ci})" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-ink/10 hover:bg-ink/5">Not duplicates — keep all</button>
     </div>
   </div>`;
 }
@@ -2043,8 +2099,8 @@ async function renderDupModal(){
   document.getElementById('dup-body').innerHTML = clusters.map(dupClusterHtml).join('');
   const auto = clusters.filter(c => !c.tied).length;
   document.getElementById('dup-footer').innerHTML =
-    (auto > 1 ? `<button onclick="dupKeepNewestAll()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-navy-700 hover:bg-navy-600 border border-white/10 mr-auto">Keep newest in all ${auto} groups…</button>` : '<span class="mr-auto"></span>') +
-    `<button onclick="closeModal('dup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5">Close</button>`;
+    (auto > 1 ? `<button onclick="dupKeepNewestAll()" class="px-3 py-2 rounded-lg text-xs font-semibold bg-navy-700 hover:bg-navy-600 border border-ink/10 mr-auto">Keep newest in all ${auto} groups…</button>` : '<span class="mr-auto"></span>') +
+    `<button onclick="closeModal('dup-modal')" class="px-4 py-2 rounded-lg text-sm font-medium border border-ink/10 hover:bg-ink/5">Close</button>`;
 }
 
 function dupReveal(ci, i){
@@ -2235,7 +2291,7 @@ async function confirmClearAllData(){
 
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
-  const order = ['confirm-modal','import-passphrase-modal','export-passphrase-modal','xlsx-import-modal','appbackup-modal','import-modal','share-modal','dup-modal','credential-modal','document-modal','clear-data-modal'];
+  const order = ['settings-modal','confirm-modal','import-passphrase-modal','export-passphrase-modal','xlsx-import-modal','appbackup-modal','import-modal','share-modal','dup-modal','credential-modal','document-modal','clear-data-modal'];
   for(const id of order){
     const m = document.getElementById(id);
     if(m && !m.classList.contains('hidden')){ if(id === 'xlsx-import-modal') cancelXlsxImport(); else closeModal(id); break; }
